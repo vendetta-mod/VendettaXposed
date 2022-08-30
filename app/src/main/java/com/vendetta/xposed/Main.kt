@@ -19,6 +19,7 @@ class Main : IXposedHookLoadPackage {
     @SuppressLint("PrivateApi", "BlockedPrivateApi")
     override fun handleLoadPackage(param: XC_LoadPackage.LoadPackageParam) {
         if (param.packageName != "com.discord") return
+
         val cache = File(param.appInfo.dataDir, "cache")
 
         val catalystInstanceImpl = param.classLoader.loadClass("com.facebook.react.bridge.CatalystInstanceImpl")
@@ -40,7 +41,7 @@ class Main : IXposedHookLoadPackage {
         XposedBridge.hookMethod(loadScriptFromAssets, object : XC_MethodHook() {
             override fun afterHookedMethod(param: MethodHookParam) {
                 val vendetta = File(cache, "vendetta.js")
-                vendetta.writeBytes(URL("http://localhost:3000/vendetta.js").readBytes())
+                vendetta.writeBytes(URL("http://localhost:4040/vendetta.js").readBytes())
                 loadScriptFromFile.invoke(param.thisObject, vendetta.absolutePath, vendetta.absolutePath, param.args[2])
             }
         })
