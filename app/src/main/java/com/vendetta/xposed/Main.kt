@@ -21,6 +21,22 @@ class Main : IXposedHookLoadPackage {
         if (param.packageName != "com.discord") return
 
         val cache = File(param.appInfo.dataDir, "cache")
+        val modules = File(cache, "modules.js")
+        if (!modules.exists()) {
+            modules.parentFile?.mkdirs()
+            modules.writeText("""
+                const oldObjectCreate = this.Object.create;
+                const win = this;
+                win.Object.create = (...args) => {
+                    const obj = oldObjectCreate.apply(win.Object, args);
+                    if (args[0] === null) {
+                        win.modules = obj;
+                        win.Object.create = oldObjectCreate;
+                    }
+                    return obj;
+                };
+            """.trimIndent())
+        }
 
         val catalystInstanceImpl = param.classLoader.loadClass("com.facebook.react.bridge.CatalystInstanceImpl")
 
@@ -39,6 +55,10 @@ class Main : IXposedHookLoadPackage {
         ).apply { isAccessible = true }
 
         XposedBridge.hookMethod(loadScriptFromAssets, object : XC_MethodHook() {
+            override fun beforeHookedMethod(param: MethodHookParam) {
+                loadScriptFromFile.invoke(param.thisObject, modules.absolutePath, modules.absolutePath, param.args[2])
+            }
+
             override fun afterHookedMethod(param: MethodHookParam) {
                 val vendetta = File(cache, "vendetta.js")
                 vendetta.writeBytes(URL("http://localhost:4040/vendetta.js").readBytes())
