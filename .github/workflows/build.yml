@@ -1,0 +1,41 @@
+name: Build APK
+on: [push]
+
+jobs:
+    build:
+        name: Build and push
+        runs-on: ubuntu-latest
+
+        steps:
+            - uses: actions/checkout@v3
+
+            - uses: actions/setup-java@v3
+              with:
+                  distribution: "temurin"
+                  java-version: "17"
+
+            - name: "Setup Gradle"
+              uses: gradle/gradle-build-action@v2
+
+            - name: "Build APKs"
+              run: ./gradlew build
+
+            - name: "Setup directories"
+              run: |
+                  mkdir -p /tmp/vendetta/apks
+                  mkdir -p /tmp/vendetta/tools
+
+            - name: "Move debug APK"
+              run: mv ./app/build/apks/debug/app-debug.apk /tmp/vendetta/apks
+
+            - name: "Download uber-apk-signer"
+              run: wget -nv "https://github.com/patrickfav/uber-apk-signer/releases/download/v1.2.1/uber-apk-signer-1.2.1.jar" -O /tmp/vendetta/tools/uber-apk-signer.jar
+
+            - name: "Sign release APK"
+              run: java -jar /tmp/vendetta/tools/uber-apk-signer.jar --apks ./app/build/apks/release/app-release-unsigned.apk -out /tmp/vendetta/apks/app-release.apk
+
+            - name: "Upload APKS"
+              uses: actions/upload-artifact@v3
+              with:
+                name: builds
+                path: /tmp/vendetta/apks/*.apk
