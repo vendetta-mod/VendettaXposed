@@ -2,6 +2,7 @@ package com.vendetta.xposed
 
 import android.annotation.SuppressLint
 import android.content.res.AssetManager
+import android.content.pm.ApplicationInfo
 import de.robv.android.xposed.IXposedHookLoadPackage
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
@@ -16,6 +17,7 @@ class InsteadHook(private val hook: (MethodHookParam) -> Any?) : XC_MethodHook()
 }
 
 class Main : IXposedHookLoadPackage {
+    val isDebuggable = 0 != ApplicationInfo.FLAG_DEBUGGABLE
     @SuppressLint("PrivateApi", "BlockedPrivateApi")
     override fun handleLoadPackage(param: XC_LoadPackage.LoadPackageParam) {
         if (param.packageName != "com.discord") return
@@ -61,7 +63,7 @@ class Main : IXposedHookLoadPackage {
 
             override fun afterHookedMethod(param: MethodHookParam) {
                 val vendetta = File(cache, "vendetta.js")
-                vendetta.writeBytes(URL("http://localhost:4040/vendetta.js").readBytes())
+                vendetta.writeBytes(URL(if (isDebuggable) "http://localhost:4040/vendetta.js" else "https://raw.githubusercontent.com/vendetta-mod/builds/master/vendetta.js").readBytes())
                 loadScriptFromFile.invoke(param.thisObject, vendetta.absolutePath, vendetta.absolutePath, param.args[2])
             }
         })
