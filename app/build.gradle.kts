@@ -21,7 +21,7 @@ android {
         }
         release {
             isDebuggable = false
-            isMinifyEnabled = true
+            isMinifyEnabled = false
         }
     }
     compileOptions {
