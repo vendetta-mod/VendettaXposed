@@ -17,6 +17,9 @@ jobs:
             - name: "Setup Gradle"
               uses: gradle/gradle-build-action@v2
 
+            - name: "Grant execution permission"
+              run: chmod +x ./gradlew
+
             - name: "Build APKs"
               run: ./gradlew build
 
