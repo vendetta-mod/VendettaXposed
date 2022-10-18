@@ -11,12 +11,6 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage
 import java.io.File
 import java.net.URL
 
-class InsteadHook(private val hook: (MethodHookParam) -> Any?) : XC_MethodHook() {
-    override fun beforeHookedMethod(param: MethodHookParam) {
-        param.result = hook(param)
-    }
-}
-
 class Main : IXposedHookLoadPackage {
     @SuppressLint("PrivateApi", "BlockedPrivateApi")
     override fun handleLoadPackage(param: XC_LoadPackage.LoadPackageParam) {
@@ -24,21 +18,19 @@ class Main : IXposedHookLoadPackage {
 
         val cache = File(param.appInfo.dataDir, "cache")
         val modules = File(cache, "modules.js")
-        if (!modules.exists()) {
-            modules.parentFile?.mkdirs()
-            modules.writeText("""
-                const oldObjectCreate = this.Object.create;
-                const win = this;
-                win.Object.create = (...args) => {
-                    const obj = oldObjectCreate.apply(win.Object, args);
-                    if (args[0] === null) {
-                        win.modules = obj;
-                        win.Object.create = oldObjectCreate;
-                    }
-                    return obj;
-                };
-            """.trimIndent())
-        }
+        modules.parentFile?.mkdirs()
+        modules.writeText("""
+            const oldObjectCreate = this.Object.create;
+            const win = this;
+            win.Object.create = (...args) => {
+                const obj = oldObjectCreate.apply(win.Object, args);
+                if (args[0] === null) {
+                    win.modules = obj;
+                    win.Object.create = oldObjectCreate;
+                }
+                return obj;
+            };
+        """.trimIndent())
 
         val catalystInstanceImpl = param.classLoader.loadClass("com.facebook.react.bridge.CatalystInstanceImpl")
 
