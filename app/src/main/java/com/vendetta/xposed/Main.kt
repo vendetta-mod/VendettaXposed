@@ -52,12 +52,16 @@ class Main : IXposedHookLoadPackage {
 
         XposedBridge.hookMethod(loadScriptFromAssets, object : XC_MethodHook() {
             override fun beforeHookedMethod(param: MethodHookParam) {
-                vendetta.writeBytes(URL(if (BuildConfig.BUILD_TYPE.equals("debug")) "http://localhost:4040/vendetta.js" else "https://raw.githubusercontent.com/vendetta-mod/builds/master/vendetta.js").readBytes())
+                try {
+                    vendetta.writeBytes(URL(if (BuildConfig.BUILD_TYPE.equals("debug")) "http://localhost:4040/vendetta.js" else "https://raw.githubusercontent.com/vendetta-mod/builds/master/vendetta.js").readBytes())
+                } catch(e: Exception) {}
                 loadScriptFromFile.invoke(param.thisObject, modules.absolutePath, modules.absolutePath, param.args[2])
             }
 
             override fun afterHookedMethod(param: MethodHookParam) {
-                loadScriptFromFile.invoke(param.thisObject, vendetta.absolutePath, vendetta.absolutePath, param.args[2])
+                try {
+                    loadScriptFromFile.invoke(param.thisObject, vendetta.absolutePath, vendetta.absolutePath, param.args[2])
+                } catch(e: Exception) {}
             }
         })
     }
