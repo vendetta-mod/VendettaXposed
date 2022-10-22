@@ -1,6 +1,3 @@
 <resources>
     <string name="app_name">VendettaXposed</string>
-    <string-array name="scope">
-        <item>com.discord</item>
-    </string-array>
 </resources>
