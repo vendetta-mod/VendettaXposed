@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("kotlin-android")
+    kotlin("plugin.serialization") version "1.8.0"
 }
 
 android {
@@ -33,4 +34,5 @@ android {
 
 dependencies {
     compileOnly("de.robv.android.xposed:api:82")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
 }
