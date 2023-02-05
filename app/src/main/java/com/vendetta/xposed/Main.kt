@@ -17,8 +17,13 @@ import java.io.File
 import java.net.URL
 
 @Serializable
+data class CustomLoadUrl(
+    val enabled: Boolean,
+    val url: String
+)
+@Serializable
 data class LoaderConfig(
-    val loadFromLocal: Boolean,
+    val customLoadUrl: CustomLoadUrl,
     val loadReactDevTools: Boolean
 )
 
@@ -58,7 +63,10 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
             config = Json.decodeFromString(configFile.readText())
         } catch (_: Exception) {
             config = LoaderConfig(
-                loadFromLocal = false,
+                customLoadUrl = CustomLoadUrl(
+                    enabled = false,
+                    url = "http://localhost:4040/vendetta.js"
+                ),
                 loadReactDevTools = false
             )
             configFile.writeText(Json.encodeToString(config))
@@ -67,7 +75,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
         XposedBridge.hookMethod(loadScriptFromAssets, object : XC_MethodHook() {
             override fun beforeHookedMethod(param: MethodHookParam) {
                 try {
-                    vendetta.writeBytes(URL(if (config.loadFromLocal) "http://localhost:4040/vendetta.js" else "https://raw.githubusercontent.com/vendetta-mod/builds/master/vendetta.js").readBytes())
+                    vendetta.writeBytes(URL(if (config.customLoadUrl.enabled) config.customLoadUrl.url else "https://raw.githubusercontent.com/vendetta-mod/builds/master/vendetta.js").readBytes())
                 } catch (_: Exception) {}
 
                 XposedBridge.invokeOriginalMethod(loadScriptFromAssets, param.thisObject, arrayOf(modResources.assets, "assets://js/modules.js", true))
