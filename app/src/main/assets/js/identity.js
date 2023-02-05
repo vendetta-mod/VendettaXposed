@@ -1,0 +1,1 @@
+window.__vendetta_loader={name:"VendettaXposed",supports:["loaderConfig"]};

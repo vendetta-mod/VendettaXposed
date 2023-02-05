@@ -71,6 +71,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
                 } catch (_: Exception) {}
 
                 XposedBridge.invokeOriginalMethod(loadScriptFromAssets, param.thisObject, arrayOf(modResources.assets, "assets://js/modules.js", true))
+                XposedBridge.invokeOriginalMethod(loadScriptFromAssets, param.thisObject, arrayOf(modResources.assets, "assets://js/identity.js", true))
                 if (config.loadReactDevTools)
                     XposedBridge.invokeOriginalMethod(loadScriptFromAssets, param.thisObject, arrayOf(modResources.assets, "assets://js/devtools.js", true))
             }
