@@ -2,6 +2,7 @@ package com.vendetta.xposed
 
 import android.content.res.AssetManager
 import android.content.res.XModuleResources
+import android.util.Log
 import de.robv.android.xposed.IXposedHookLoadPackage
 import de.robv.android.xposed.IXposedHookZygoteInit
 import de.robv.android.xposed.XC_MethodHook
@@ -11,8 +12,6 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.decodeFromStream
-import kotlinx.serialization.json.encodeToStream
 import java.io.File
 import java.net.URL
 
@@ -74,9 +73,16 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
 
         XposedBridge.hookMethod(loadScriptFromAssets, object : XC_MethodHook() {
             override fun beforeHookedMethod(param: MethodHookParam) {
+                val url = if (config.customLoadUrl.enabled) config.customLoadUrl.url else "https://raw.githubusercontent.com/vendetta-mod/builds/master/vendetta.js"
                 try {
-                    vendetta.writeBytes(URL(if (config.customLoadUrl.enabled) config.customLoadUrl.url else "https://raw.githubusercontent.com/vendetta-mod/builds/master/vendetta.js").readBytes())
-                } catch (_: Exception) {}
+                    URL(url).openStream().use { input ->
+                        vendetta.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                } catch (_: Exception) {
+                    Log.i("Vendetta", "Failed to download Vendetta from $url")
+                }
 
                 XposedBridge.invokeOriginalMethod(loadScriptFromAssets, param.thisObject, arrayOf(modResources.assets, "assets://js/modules.js", true))
                 XposedBridge.invokeOriginalMethod(loadScriptFromAssets, param.thisObject, arrayOf(modResources.assets, "assets://js/identity.js", true))
