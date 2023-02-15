@@ -39,7 +39,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
         val catalystInstanceImpl = param.classLoader.loadClass("com.facebook.react.bridge.CatalystInstanceImpl")
 
         val loadScriptFromAssets = catalystInstanceImpl.getDeclaredMethod(
-            "loadScriptFromAssets",
+            "jniLoadScriptFromAssets",
             AssetManager::class.java,
             String::class.java,
             Boolean::class.javaPrimitiveType
@@ -71,7 +71,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
             configFile.writeText(Json.encodeToString(config))
         }
 
-        XposedBridge.hookMethod(loadScriptFromAssets, object : XC_MethodHook() {
+        val patch = object : XC_MethodHook() {
             override fun beforeHookedMethod(param: MethodHookParam) {
                 val url = if (config.customLoadUrl.enabled) config.customLoadUrl.url else "https://raw.githubusercontent.com/vendetta-mod/builds/master/vendetta.js"
                 try {
@@ -92,9 +92,12 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
 
             override fun afterHookedMethod(param: MethodHookParam) {
                 try {
-                    loadScriptFromFile.invoke(param.thisObject, vendetta.absolutePath, vendetta.absolutePath, param.args[2])
+                    XposedBridge.invokeOriginalMethod(loadScriptFromFile, param.thisObject, arrayOf(vendetta.absolutePath, vendetta.absolutePath, param.args[2]))
                 } catch (_: Exception) {}
             }
-        })
+        }
+
+        XposedBridge.hookMethod(loadScriptFromAssets, patch)
+        XposedBridge.hookMethod(loadScriptFromFile, patch)
     }
 }
