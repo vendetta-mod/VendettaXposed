@@ -34,8 +34,6 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
     }
 
     override fun handleLoadPackage(param: XC_LoadPackage.LoadPackageParam) {
-        if (param.packageName != "com.discord") return
-
         val catalystInstanceImpl = param.classLoader.loadClass("com.facebook.react.bridge.CatalystInstanceImpl")
 
         val loadScriptFromAssets = catalystInstanceImpl.getDeclaredMethod(
