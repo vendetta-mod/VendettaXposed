@@ -116,8 +116,10 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
             }
         }
 
-        @Suppress("UNCHECKED_CAST")
-        val drawableIdPatch = object: XC_MethodHook() {
+        XposedBridge.hookMethod(loadScriptFromAssets, patch)
+        XposedBridge.hookMethod(loadScriptFromFile, patch)
+        XposedBridge.hookMethod(getResourceDrawableId, object: XC_MethodHook() {
+            @Suppress("UNCHECKED_CAST")
             override fun beforeHookedMethod(param: MethodHookParam) {
                 val context = param.args[0] as Context
                 val str = param.args[1] as String?
@@ -141,9 +143,8 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
                     }
                 }
             }
-        }
-
-        val rawIdPatch = object: XC_MethodHook() {
+        })
+        XposedBridge.hookMethod(resolveRawResId, object: XC_MethodHook() {
             override fun beforeHookedMethod(param: MethodHookParam) {
                 val context = param.args[0] as Context
                 val str = param.args[1] as String
@@ -156,11 +157,6 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
                 }
                 throw IllegalArgumentException("Trying to resolve unknown sound $str")
             }
-        }
-
-        XposedBridge.hookMethod(loadScriptFromAssets, patch)
-        XposedBridge.hookMethod(loadScriptFromFile, patch)
-        XposedBridge.hookMethod(getResourceDrawableId, drawableIdPatch)
-        XposedBridge.hookMethod(resolveRawResId, rawIdPatch)
+        })
     }
 }
