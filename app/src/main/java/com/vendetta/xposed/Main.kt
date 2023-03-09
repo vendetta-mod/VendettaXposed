@@ -1,5 +1,6 @@
 package com.vendetta.xposed
 
+import android.content.Context
 import android.content.res.AssetManager
 import android.content.res.XModuleResources
 import android.util.Log
@@ -14,6 +15,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.net.URL
+import java.util.HashMap
 
 @Serializable
 data class CustomLoadUrl(
@@ -35,6 +37,8 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
 
     override fun handleLoadPackage(param: XC_LoadPackage.LoadPackageParam) {
         val catalystInstanceImpl = param.classLoader.loadClass("com.facebook.react.bridge.CatalystInstanceImpl")
+        val resourceDrawableIdHelper = param.classLoader.loadClass("com.facebook.react.views.imagehelper.ResourceDrawableIdHelper")
+        val soundManagerModule = param.classLoader.loadClass("com.discord.sounds.SoundManagerModule")
 
         val loadScriptFromAssets = catalystInstanceImpl.getDeclaredMethod(
             "jniLoadScriptFromAssets",
@@ -48,6 +52,23 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
             String::class.java,
             String::class.java,
             Boolean::class.javaPrimitiveType
+        ).apply { isAccessible = true }
+
+        val getResourceDrawableId = resourceDrawableIdHelper.getDeclaredMethod(
+            "getResourceDrawableId",
+            Context::class.java,
+            String::class.java
+        ).apply { isAccessible = true }
+
+        val mResourceDrawableIdMapField = resourceDrawableIdHelper.getDeclaredField("mResourceDrawableIdMap").apply {
+            isAccessible = true
+        }
+
+        val resolveRawResId = soundManagerModule.getDeclaredMethod(
+            "resolveRawResId",
+            Context::class.java,
+            String::class.java,
+            String::class.java
         ).apply { isAccessible = true }
 
         val cache = File(param.appInfo.dataDir, "cache").also { it.mkdirs() }
@@ -97,5 +118,45 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
 
         XposedBridge.hookMethod(loadScriptFromAssets, patch)
         XposedBridge.hookMethod(loadScriptFromFile, patch)
+        XposedBridge.hookMethod(getResourceDrawableId, object: XC_MethodHook() {
+            @Suppress("UNCHECKED_CAST")
+            override fun beforeHookedMethod(param: MethodHookParam) {
+                val context = param.args[0] as Context
+                val str = param.args[1] as String?
+                val mResourceDrawableIdMap = mResourceDrawableIdMapField.get(param.thisObject) as HashMap<String, Int>
+                if(str.isNullOrEmpty()) {
+                    param.result = 0; return
+                }
+                val replace = str.replace("-", "_")
+                try {
+                    param.result = Integer.parseInt(replace); return
+                } catch (e: Throwable) {
+                    synchronized(param.thisObject) {
+                        if(mResourceDrawableIdMap.containsKey(replace)) {
+                            param.result = mResourceDrawableIdMap[replace]!!.toInt()
+                        }
+
+                        // Hardcode package name to fix resource loading when patched app has modified package name
+                        val identifier = context.resources.getIdentifier(replace, "drawable", "com.discord")
+                        mResourceDrawableIdMap[replace] = identifier
+                        param.result = identifier; return
+                    }
+                }
+            }
+        })
+        XposedBridge.hookMethod(resolveRawResId, object: XC_MethodHook() {
+            override fun beforeHookedMethod(param: MethodHookParam) {
+                val context = param.args[0] as Context
+                val str = param.args[1] as String
+                val str2 = param.args[2] as String
+
+                // Hardcode package name to fix resource loading when patched app has modified package name
+                val identifier = context.resources.getIdentifier(str, str2, "com.discord")
+                if(identifier > 0) {
+                    param.result = identifier; return
+                }
+                throw IllegalArgumentException("Trying to resolve unknown sound $str")
+            }
+        })
     }
 }
