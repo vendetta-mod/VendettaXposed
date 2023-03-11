@@ -29,12 +29,12 @@ data class LoaderConfig(
     val loadReactDevTools: Boolean
 )
 @Serializable
-data class ThemeData<T>(
-    val name: String,
-    val description: String,
-    val version: String,
-    val theme_color_map: Map<String, List<T>>,
-    val colors: Map<String, T>,
+data class ThemeData(
+    val name: String?,
+    val description: String?,
+    val version: String?,
+    val theme_color_map: Map<String, List<Int>>,
+    val colors: Map<String, Int>?
 )
 
 class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
@@ -42,6 +42,21 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
 
     override fun initZygote(startupParam: IXposedHookZygoteInit.StartupParam) {
         modResources = XModuleResources.createInstance(startupParam.modulePath, null)
+    }
+
+    fun hookThemeMethod(themeClass: Class<*>, methodName: String, themeValue: Int) {
+        try {
+            themeClass.getDeclaredMethod(methodName).let { method ->
+                XposedBridge.log("Hooking $methodName -> $themeValue")
+                XposedBridge.hookMethod(method, object : XC_MethodHook() {
+                    override fun beforeHookedMethod(param: MethodHookParam) {
+                        param.result = themeValue
+                    }
+                })
+            }
+        } catch (ex: NoSuchMethodException) {
+            // do nothing
+        }
     }
 
     fun createTempFileFromString(content: String): File {
@@ -55,6 +70,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
         val resourceDrawableIdHelper = param.classLoader.loadClass("com.facebook.react.views.imagehelper.ResourceDrawableIdHelper")
         val soundManagerModule = param.classLoader.loadClass("com.discord.sounds.SoundManagerModule")
         val darkTheme = param.classLoader.loadClass("com.discord.theme.DarkTheme")
+        val lightTheme = param.classLoader.loadClass("com.discord.theme.LightTheme")
 
         val loadScriptFromAssets = catalystInstanceImpl.getDeclaredMethod(
             "jniLoadScriptFromAssets",
@@ -110,26 +126,21 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
         }
 
         try {
-            val theme = Json { ignoreUnknownKeys = true }.decodeFromString<ThemeData<Integer>>(processedThemeFile.readText())
+            val theme = Json { ignoreUnknownKeys = true }.decodeFromString<ThemeData>(processedThemeFile.readText())
             
             for ((key, value) in theme.theme_color_map) {
-                val methodName = "get${key.split("_").joinToString("") { it.toLowerCase().replaceFirstChar { it.uppercase() } }}"
+                // TEXT_NORMAL -> getTextNormal
+                val methodName = "get${key.split("_").joinToString("") { it.lowercase().replaceFirstChar { it.uppercase() } }}"
 
-                try {
-                    darkTheme.getDeclaredMethod(methodName)?.let { method ->
-                        XposedBridge.log("Hooking $key -> $value")
-                        XposedBridge.hookMethod(method, object : XC_MethodHook() {
-                            override fun beforeHookedMethod(param: MethodHookParam) {
-                                param.result = value[0] // 0 == dark
-                            }
-                        })
+                for ((i, v) in value.withIndex()) {
+                    when (i) {
+                        0 -> hookThemeMethod(darkTheme, methodName, v)
+                        1 -> hookThemeMethod(lightTheme, methodName, v)
                     }
-                } catch (ex: NoSuchMethodException) {
-                    // do nothing
                 }
             }
         } catch (ex: Exception) {
-            XposedBridge.log("Vendetta: Unable to find/parse theme, perhaps does not exist?")
+            XposedBridge.log("Vendetta: Unable to find/parse theme")
             XposedBridge.log(ex)
         }
 
