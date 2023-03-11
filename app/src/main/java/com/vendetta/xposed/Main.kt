@@ -27,12 +27,26 @@ data class LoaderConfig(
     val customLoadUrl: CustomLoadUrl,
     val loadReactDevTools: Boolean
 )
+@Serializable
+data class ThemeData(
+    val name: String,
+    val description: String,
+    val theme_color_map: Map<String, List<String>>,
+    val colors: Map<String, String>,
+    val colours: Map<String, String>?
+)
 
 class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
     private lateinit var modResources: XModuleResources
 
     override fun initZygote(startupParam: IXposedHookZygoteInit.StartupParam) {
         modResources = XModuleResources.createInstance(startupParam.modulePath, null)
+    }
+
+    fun createTempFileFromString(content: String): File {
+        val tempFile = File.createTempFile("eval_", ".js")
+        tempFile.writeText(content)
+        return tempFile
     }
 
     override fun handleLoadPackage(param: XC_LoadPackage.LoadPackageParam) {
@@ -77,6 +91,8 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
         lateinit var config: LoaderConfig
         val files = File(param.appInfo.dataDir, "files").also { it.mkdirs() }
         val configFile = File(files, "vendetta_loader.json")
+        val themeFile = File(files, "vendetta_theme.json")
+
         try {
             config = Json.decodeFromString(configFile.readText())
         } catch (_: Exception) {
@@ -88,6 +104,15 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
                 loadReactDevTools = false
             )
             configFile.writeText(Json.encodeToString(config))
+        }
+
+        val themeString = try { themeFile.readText() } catch (_: Exception) { "null" }
+
+        try {
+            val theme = Json.decodeFromString<ThemeData>(themeString)
+            // handle theme
+        } catch (_: Exception) {
+            // ignore
         }
 
         val patch = object : XC_MethodHook() {
@@ -111,6 +136,8 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
 
             override fun afterHookedMethod(param: MethodHookParam) {
                 try {
+                    val tempEvalFile = createTempFileFromString("globalThis.__vendetta_theme=" + themeString)
+                    XposedBridge.invokeOriginalMethod(loadScriptFromFile, param.thisObject, arrayOf(tempEvalFile.absolutePath, tempEvalFile.absolutePath, param.args[2]))
                     XposedBridge.invokeOriginalMethod(loadScriptFromFile, param.thisObject, arrayOf(vendetta.absolutePath, vendetta.absolutePath, param.args[2]))
                 } catch (_: Exception) {}
             }
