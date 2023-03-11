@@ -1,6 +1,7 @@
 package com.vendetta.xposed
 
 import android.content.Context
+import android.graphics.Color
 import android.content.res.AssetManager
 import android.content.res.XModuleResources
 import android.util.Log
@@ -31,9 +32,9 @@ data class LoaderConfig(
 data class ThemeData(
     val name: String,
     val description: String,
+    val version: String,
     val theme_color_map: Map<String, List<String>>,
     val colors: Map<String, String>,
-    val colours: Map<String, String>?
 )
 
 class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
@@ -53,6 +54,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
         val catalystInstanceImpl = param.classLoader.loadClass("com.facebook.react.bridge.CatalystInstanceImpl")
         val resourceDrawableIdHelper = param.classLoader.loadClass("com.facebook.react.views.imagehelper.ResourceDrawableIdHelper")
         val soundManagerModule = param.classLoader.loadClass("com.discord.sounds.SoundManagerModule")
+        val darkTheme = param.classLoader.loadClass("com.discord.theme.DarkTheme")
 
         val loadScriptFromAssets = catalystInstanceImpl.getDeclaredMethod(
             "jniLoadScriptFromAssets",
@@ -109,10 +111,34 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
         val themeString = try { themeFile.readText() } catch (_: Exception) { "null" }
 
         try {
-            val theme = Json.decodeFromString<ThemeData>(themeString)
-            // handle theme
-        } catch (_: Exception) {
-            // ignore
+            val theme = Json {
+                ignoreUnknownKeys = true
+            }.decodeFromString<ThemeData>(themeString)
+            
+            for ((key, value) in theme.theme_color_map) {
+                // Convert TEXT_NORMAL -> getTextNormal
+                val methodName = "get" + key.split("_").joinToString("") { 
+                    it.toLowerCase().replaceFirstChar { it.uppercase() } 
+                };
+                val darkColor = Color.parseColor(value[0])
+
+                XposedBridge.log("Hooking $key -> $darkColor")
+
+                val method = try {
+                    darkTheme.getDeclaredMethod(methodName)
+                } catch (_: Exception) {
+                    continue
+                }
+
+                XposedBridge.hookMethod(method, object : XC_MethodHook() {
+                    override fun beforeHookedMethod(param: MethodHookParam) {
+                        param.result = darkColor
+                    }
+                })
+            }
+        } catch (ex: Exception) {
+            XposedBridge.log("Unable to parse theme, " + themeString)
+            XposedBridge.log(ex)
         }
 
         val patch = object : XC_MethodHook() {
