@@ -29,12 +29,12 @@ data class LoaderConfig(
     val loadReactDevTools: Boolean
 )
 @Serializable
-data class ThemeData(
+data class ThemeData<T>(
     val name: String,
     val description: String,
     val version: String,
-    val theme_color_map: Map<String, List<String>>,
-    val colors: Map<String, String>,
+    val theme_color_map: Map<String, List<T>>,
+    val colors: Map<String, T>,
 )
 
 class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
@@ -94,6 +94,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
         val files = File(param.appInfo.dataDir, "files").also { it.mkdirs() }
         val configFile = File(files, "vendetta_loader.json")
         val themeFile = File(files, "vendetta_theme.json")
+        val processedThemeFile = File(files, "vendetta_processed_theme.json")
 
         try {
             config = Json.decodeFromString(configFile.readText())
@@ -108,36 +109,27 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
             configFile.writeText(Json.encodeToString(config))
         }
 
-        val themeString = try { themeFile.readText() } catch (_: Exception) { "null" }
-
         try {
-            val theme = Json {
-                ignoreUnknownKeys = true
-            }.decodeFromString<ThemeData>(themeString)
+            val theme = Json { ignoreUnknownKeys = true }.decodeFromString<ThemeData<Integer>>(processedThemeFile.readText())
             
             for ((key, value) in theme.theme_color_map) {
-                // Convert TEXT_NORMAL -> getTextNormal
-                val methodName = "get" + key.split("_").joinToString("") { 
-                    it.toLowerCase().replaceFirstChar { it.uppercase() } 
-                };
-                val darkColor = Color.parseColor(value[0])
+                val methodName = "get${key.split("_").joinToString("") { it.toLowerCase().replaceFirstChar { it.uppercase() } }}"
 
-                XposedBridge.log("Hooking $key -> $darkColor")
-
-                val method = try {
-                    darkTheme.getDeclaredMethod(methodName)
-                } catch (_: Exception) {
-                    continue
-                }
-
-                XposedBridge.hookMethod(method, object : XC_MethodHook() {
-                    override fun beforeHookedMethod(param: MethodHookParam) {
-                        param.result = darkColor
+                try {
+                    darkTheme.getDeclaredMethod(methodName)?.let { method ->
+                        XposedBridge.log("Hooking $key -> $value")
+                        XposedBridge.hookMethod(method, object : XC_MethodHook() {
+                            override fun beforeHookedMethod(param: MethodHookParam) {
+                                param.result = value[0] // 0 == dark
+                            }
+                        })
                     }
-                })
+                } catch (ex: NoSuchMethodException) {
+                    // do nothing
+                }
             }
         } catch (ex: Exception) {
-            XposedBridge.log("Unable to parse theme, " + themeString)
+            XposedBridge.log("Vendetta: Unable to find/parse theme, perhaps does not exist?")
             XposedBridge.log(ex)
         }
 
@@ -162,7 +154,9 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
 
             override fun afterHookedMethod(param: MethodHookParam) {
                 try {
+                    val themeString = try { themeFile.readText() } catch (_: Exception) { "null" }
                     val tempEvalFile = createTempFileFromString("globalThis.__vendetta_theme=" + themeString)
+                    
                     XposedBridge.invokeOriginalMethod(loadScriptFromFile, param.thisObject, arrayOf(tempEvalFile.absolutePath, tempEvalFile.absolutePath, param.args[2]))
                     XposedBridge.invokeOriginalMethod(loadScriptFromFile, param.thisObject, arrayOf(vendetta.absolutePath, vendetta.absolutePath, param.args[2]))
                 } catch (_: Exception) {}
