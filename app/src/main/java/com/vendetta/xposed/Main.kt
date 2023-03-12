@@ -33,8 +33,8 @@ data class ThemeData(
     val name: String?,
     val description: String?,
     val version: String?,
-    val theme_color_map: Map<String, List<Int>>,
-    val colors: Map<String, Int>?
+    val theme_color_map: Map<String, List<String>>,
+    val colors: Map<String, String>?
 )
 
 class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
@@ -44,10 +44,15 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
         modResources = XModuleResources.createInstance(startupParam.modulePath, null)
     }
 
+    fun hexStringToColorInt(hexString: String): Int {
+        val parsed = Color.parseColor(hexString)
+        return parsed.takeIf { hexString.length == 7 } ?: parsed and 0xFFFFFF or (parsed ushr 24)
+    }
+
     fun hookThemeMethod(themeClass: Class<*>, methodName: String, themeValue: Int) {
         try {
             themeClass.getDeclaredMethod(methodName).let { method ->
-                XposedBridge.log("Hooking $methodName -> $themeValue")
+                XposedBridge.log("Hooking $methodName -> ${themeValue.toString(16)}")
                 XposedBridge.hookMethod(method, object : XC_MethodHook() {
                     override fun beforeHookedMethod(param: MethodHookParam) {
                         param.result = themeValue
@@ -110,7 +115,6 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
         val files = File(param.appInfo.dataDir, "files").also { it.mkdirs() }
         val configFile = File(files, "vendetta_loader.json")
         val themeFile = File(files, "vendetta_theme.json")
-        val processedThemeFile = File(files, "vendetta_processed_theme.json")
 
         try {
             config = Json.decodeFromString(configFile.readText())
@@ -126,7 +130,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
         }
 
         try {
-            val theme = Json { ignoreUnknownKeys = true }.decodeFromString<ThemeData>(processedThemeFile.readText())
+            val theme = Json { ignoreUnknownKeys = true }.decodeFromString<ThemeData>(themeFile.readText())
             
             for ((key, value) in theme.theme_color_map) {
                 // TEXT_NORMAL -> getTextNormal
@@ -134,8 +138,8 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
 
                 for ((i, v) in value.withIndex()) {
                     when (i) {
-                        0 -> hookThemeMethod(darkTheme, methodName, v)
-                        1 -> hookThemeMethod(lightTheme, methodName, v)
+                        0 -> hookThemeMethod(darkTheme, methodName, hexStringToColorInt(v))
+                        1 -> hookThemeMethod(lightTheme, methodName, hexStringToColorInt(v))
                     }
                 }
             }
