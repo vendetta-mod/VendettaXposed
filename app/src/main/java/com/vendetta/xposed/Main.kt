@@ -36,6 +36,12 @@ data class ThemeData(
     val theme_color_map: Map<String, List<String>>,
     val colors: Map<String, String>?
 )
+@Serializable
+data class Theme(
+    val id: String?,
+    val selected: Boolean?,
+    val data: ThemeData
+)
 
 class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
     private lateinit var modResources: XModuleResources
@@ -130,9 +136,9 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
         }
 
         try {
-            val theme = Json { ignoreUnknownKeys = true }.decodeFromString<ThemeData>(themeFile.readText())
+            val theme = Json { ignoreUnknownKeys = true }.decodeFromString<Theme>(themeFile.readText())
             
-            for ((key, value) in theme.theme_color_map) {
+            for ((key, value) in theme.data.theme_color_map) {
                 // TEXT_NORMAL -> getTextNormal
                 val methodName = "get${key.split("_").joinToString("") { it.lowercase().replaceFirstChar { it.uppercase() } }}"
 
