@@ -29,17 +29,22 @@ data class LoaderConfig(
     val loadReactDevTools: Boolean
 )
 @Serializable
+data class Author(
+    val name: String
+)
+@Serializable
 data class ThemeData(
-    val name: String?,
+    val name: String,
     val description: String?,
-    val version: String?,
-    val theme_color_map: Map<String, List<String>>,
-    val colors: Map<String, String>?
+    val authors: List<Author>?,
+    val spec: Float,
+    val semanticColors: Map<String, List<String>>?,
+    val rawColors: Map<String, String>?
 )
 @Serializable
 data class Theme(
-    val id: String?,
-    val selected: Boolean?,
+    val id: String,
+    val selected: Boolean,
     val data: ThemeData
 )
 
@@ -138,7 +143,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
         try {
             val theme = Json { ignoreUnknownKeys = true }.decodeFromString<Theme>(themeFile.readText())
             
-            for ((key, value) in theme.data.theme_color_map) {
+            for ((key, value) in theme.data.semanticColors.orEmpty()) {
                 // TEXT_NORMAL -> getTextNormal
                 val methodName = "get${key.split("_").joinToString("") { it.lowercase().replaceFirstChar { it.uppercase() } }}"
 
