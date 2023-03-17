@@ -1,6 +1,7 @@
 package com.vendetta.xposed
 
 import android.content.Context
+import android.graphics.Color
 import android.content.res.AssetManager
 import android.content.res.XModuleResources
 import android.util.Log
@@ -27,6 +28,26 @@ data class LoaderConfig(
     val customLoadUrl: CustomLoadUrl,
     val loadReactDevTools: Boolean
 )
+@Serializable
+data class Author(
+    val name: String,
+    val id: String?
+)
+@Serializable
+data class ThemeData(
+    val name: String,
+    val description: String?,
+    val authors: List<Author>?,
+    val spec: Int,
+    val semanticColors: Map<String, List<String>>?,
+    val rawColors: Map<String, String>?
+)
+@Serializable
+data class Theme(
+    val id: String,
+    val selected: Boolean,
+    val data: ThemeData
+)
 
 class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
     private lateinit var modResources: XModuleResources
@@ -35,10 +56,38 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
         modResources = XModuleResources.createInstance(startupParam.modulePath, null)
     }
 
+    fun hexStringToColorInt(hexString: String): Int {
+        val parsed = Color.parseColor(hexString)
+        return parsed.takeIf { hexString.length == 7 } ?: parsed and 0xFFFFFF or (parsed ushr 24)
+    }
+
+    fun hookThemeMethod(themeClass: Class<*>, methodName: String, themeValue: Int) {
+        try {
+            themeClass.getDeclaredMethod(methodName).let { method ->
+                // Log.i("Hooking $methodName -> ${themeValue.toString(16)}")
+                XposedBridge.hookMethod(method, object : XC_MethodHook() {
+                    override fun beforeHookedMethod(param: MethodHookParam) {
+                        param.result = themeValue
+                    }
+                })
+            }
+        } catch (ex: NoSuchMethodException) {
+            // do nothing
+        }
+    }
+
+    fun createTempFileFromString(content: String): File {
+        val tempFile = File.createTempFile("eval_", ".js")
+        tempFile.writeText(content)
+        return tempFile
+    }
+
     override fun handleLoadPackage(param: XC_LoadPackage.LoadPackageParam) {
         val catalystInstanceImpl = param.classLoader.loadClass("com.facebook.react.bridge.CatalystInstanceImpl")
         val resourceDrawableIdHelper = param.classLoader.loadClass("com.facebook.react.views.imagehelper.ResourceDrawableIdHelper")
         val soundManagerModule = param.classLoader.loadClass("com.discord.sounds.SoundManagerModule")
+        val darkTheme = param.classLoader.loadClass("com.discord.theme.DarkTheme")
+        val lightTheme = param.classLoader.loadClass("com.discord.theme.LightTheme")
 
         val loadScriptFromAssets = catalystInstanceImpl.getDeclaredMethod(
             "jniLoadScriptFromAssets",
@@ -77,6 +126,8 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
         lateinit var config: LoaderConfig
         val files = File(param.appInfo.dataDir, "files").also { it.mkdirs() }
         val configFile = File(files, "vendetta_loader.json")
+        val themeFile = File(files, "vendetta_theme.json")
+
         try {
             config = Json.decodeFromString(configFile.readText())
         } catch (_: Exception) {
@@ -90,6 +141,30 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
             configFile.writeText(Json.encodeToString(config))
         }
 
+        try {
+            // TODO: This is questionable
+            if (themeFile.exists()) {
+                val themeText = themeFile.readText()
+                if (themeText.length != 0 && themeText != "{}" && themeText != "null") {
+                    val theme = Json { ignoreUnknownKeys = true }.decodeFromString<Theme>(themeText)
+                
+                    for ((key, value) in theme.data.semanticColors.orEmpty()) {
+                        // TEXT_NORMAL -> getTextNormal
+                        val methodName = "get${key.split("_").joinToString("") { it.lowercase().replaceFirstChar { it.uppercase() } }}"
+
+                        for ((i, v) in value.withIndex()) {
+                            when (i) {
+                                0 -> hookThemeMethod(darkTheme, methodName, hexStringToColorInt(v))
+                                1 -> hookThemeMethod(lightTheme, methodName, hexStringToColorInt(v))
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (ex: Exception) {
+            Log.e("Vendetta", "Unable to find/parse theme", ex)
+        }
+
         val patch = object : XC_MethodHook() {
             override fun beforeHookedMethod(param: MethodHookParam) {
                 val url = if (config.customLoadUrl.enabled) config.customLoadUrl.url else "https://raw.githubusercontent.com/vendetta-mod/builds/master/vendetta.js"
@@ -100,7 +175,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
                         }
                     }
                 } catch (_: Exception) {
-                    Log.i("Vendetta", "Failed to download Vendetta from $url")
+                    Log.e("Vendetta", "Failed to download Vendetta from $url")
                 }
 
                 XposedBridge.invokeOriginalMethod(loadScriptFromAssets, param.thisObject, arrayOf(modResources.assets, "assets://js/modules.js", true))
@@ -111,6 +186,10 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
 
             override fun afterHookedMethod(param: MethodHookParam) {
                 try {
+                    val themeString = try { themeFile.readText() } catch (_: Exception) { "null" }
+                    val tempEvalFile = createTempFileFromString("this.__vendetta_theme=" + themeString)
+                    
+                    XposedBridge.invokeOriginalMethod(loadScriptFromFile, param.thisObject, arrayOf(tempEvalFile.absolutePath, tempEvalFile.absolutePath, param.args[2]))
                     XposedBridge.invokeOriginalMethod(loadScriptFromFile, param.thisObject, arrayOf(vendetta.absolutePath, vendetta.absolutePath, param.args[2]))
                 } catch (_: Exception) {}
             }
