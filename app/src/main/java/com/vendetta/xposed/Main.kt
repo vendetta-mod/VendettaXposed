@@ -64,7 +64,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
     fun hookThemeMethod(themeClass: Class<*>, methodName: String, themeValue: Int) {
         try {
             themeClass.getDeclaredMethod(methodName).let { method ->
-                XposedBridge.log("Hooking $methodName -> ${themeValue.toString(16)}")
+                // Log.i("Hooking $methodName -> ${themeValue.toString(16)}")
                 XposedBridge.hookMethod(method, object : XC_MethodHook() {
                     override fun beforeHookedMethod(param: MethodHookParam) {
                         param.result = themeValue
@@ -142,22 +142,27 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
         }
 
         try {
-            val theme = Json { ignoreUnknownKeys = true }.decodeFromString<Theme>(themeFile.readText())
-            
-            for ((key, value) in theme.data.semanticColors.orEmpty()) {
-                // TEXT_NORMAL -> getTextNormal
-                val methodName = "get${key.split("_").joinToString("") { it.lowercase().replaceFirstChar { it.uppercase() } }}"
+            // TODO: This is questionable
+            if (themeFile.exists()) {
+                val themeText = themeFile.readText()
+                if (themeText.length != 0 && themeText != "{}" && themeText != "null") {
+                    val theme = Json { ignoreUnknownKeys = true }.decodeFromString<Theme>(themeText)
+                
+                    for ((key, value) in theme.data.semanticColors.orEmpty()) {
+                        // TEXT_NORMAL -> getTextNormal
+                        val methodName = "get${key.split("_").joinToString("") { it.lowercase().replaceFirstChar { it.uppercase() } }}"
 
-                for ((i, v) in value.withIndex()) {
-                    when (i) {
-                        0 -> hookThemeMethod(darkTheme, methodName, hexStringToColorInt(v))
-                        1 -> hookThemeMethod(lightTheme, methodName, hexStringToColorInt(v))
+                        for ((i, v) in value.withIndex()) {
+                            when (i) {
+                                0 -> hookThemeMethod(darkTheme, methodName, hexStringToColorInt(v))
+                                1 -> hookThemeMethod(lightTheme, methodName, hexStringToColorInt(v))
+                            }
+                        }
                     }
                 }
             }
         } catch (ex: Exception) {
-            XposedBridge.log("Vendetta: Unable to find/parse theme")
-            XposedBridge.log(ex)
+            Log.e("Vendetta", "Unable to find/parse theme", ex)
         }
 
         val patch = object : XC_MethodHook() {
@@ -170,7 +175,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
                         }
                     }
                 } catch (_: Exception) {
-                    Log.i("Vendetta", "Failed to download Vendetta from $url")
+                    Log.e("Vendetta", "Failed to download Vendetta from $url")
                 }
 
                 XposedBridge.invokeOriginalMethod(loadScriptFromAssets, param.thisObject, arrayOf(modResources.assets, "assets://js/modules.js", true))
