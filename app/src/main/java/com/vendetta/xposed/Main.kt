@@ -30,14 +30,15 @@ data class LoaderConfig(
 )
 @Serializable
 data class Author(
-    val name: String
+    val name: String,
+    val id: String?
 )
 @Serializable
 data class ThemeData(
     val name: String,
     val description: String?,
     val authors: List<Author>?,
-    val spec: Float,
+    val spec: Int,
     val semanticColors: Map<String, List<String>>?,
     val rawColors: Map<String, String>?
 )
@@ -181,7 +182,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
             override fun afterHookedMethod(param: MethodHookParam) {
                 try {
                     val themeString = try { themeFile.readText() } catch (_: Exception) { "null" }
-                    val tempEvalFile = createTempFileFromString("globalThis.__vendetta_theme=" + themeString)
+                    val tempEvalFile = createTempFileFromString("this.__vendetta_theme=" + themeString)
                     
                     XposedBridge.invokeOriginalMethod(loadScriptFromFile, param.thisObject, arrayOf(tempEvalFile.absolutePath, tempEvalFile.absolutePath, param.args[2]))
                     XposedBridge.invokeOriginalMethod(loadScriptFromFile, param.thisObject, arrayOf(vendetta.absolutePath, vendetta.absolutePath, param.args[2]))
