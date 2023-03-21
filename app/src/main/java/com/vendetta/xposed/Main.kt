@@ -188,7 +188,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
                         )
                         XposedBridge.hookMethod(getColorCompat, object : XC_MethodHook() {
                             override fun afterHookedMethod(param: MethodHookParam) {
-                                param.result = (param.args[0] as Context).resources.getColor(param.args[1] as Int, null)
+                                param.result = (param.args[0] as Context).resources.getColor(param.args[1] as Int)
                             }
                         })
                     }
