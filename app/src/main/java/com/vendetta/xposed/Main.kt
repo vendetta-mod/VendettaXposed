@@ -7,8 +7,10 @@ import android.content.res.XModuleResources
 import android.util.Log
 import de.robv.android.xposed.IXposedHookLoadPackage
 import de.robv.android.xposed.IXposedHookZygoteInit
+import de.robv.android.xposed.IXposedHookInitPackageResources
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
+import de.robv.android.xposed.callbacks.XC_InitPackageResources
 import de.robv.android.xposed.callbacks.XC_LoadPackage
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -49,8 +51,9 @@ data class Theme(
     val data: ThemeData
 )
 
-class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
+class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPackageResources {
     private lateinit var modResources: XModuleResources
+    private val rawColorMap = mutableMapOf<String, Int>()
 
     override fun initZygote(startupParam: IXposedHookZygoteInit.StartupParam) {
         modResources = XModuleResources.createInstance(startupParam.modulePath, null)
@@ -58,6 +61,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
 
     fun hexStringToColorInt(hexString: String): Int {
         val parsed = Color.parseColor(hexString)
+        // Convert 0xRRGGBBAA to 0XAARRGGBB
         return parsed.takeIf { hexString.length == 7 } ?: parsed and 0xFFFFFF or (parsed ushr 24)
     }
 
@@ -76,16 +80,28 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
         }
     }
 
-    fun createTempFileFromString(content: String): File {
-        val tempFile = File.createTempFile("eval_", ".js")
-        tempFile.writeText(content)
-        return tempFile
+    fun createTempEvalFile(content: String): File = File.createTempFile("eval_", ".js").also { it.writeText(content) }
+
+    override fun handleInitPackageResources(resparam: XC_InitPackageResources.InitPackageResourcesParam) {
+        if (resparam.packageName == "com.google.android.webview") return
+
+        // rawColorMap is initialized during handleLoadPackage
+        rawColorMap.forEach { (key, value) -> 
+            try {
+                resparam.res.setReplacement("com.discord", "color", key, value)
+            } catch (_: Exception) {
+                Log.i("Vendetta", "No color resource with $key")
+            }
+        }
     }
 
     override fun handleLoadPackage(param: XC_LoadPackage.LoadPackageParam) {
+        if (param.packageName == "com.google.android.webview") return
+        
         val catalystInstanceImpl = param.classLoader.loadClass("com.facebook.react.bridge.CatalystInstanceImpl")
         val resourceDrawableIdHelper = param.classLoader.loadClass("com.facebook.react.views.imagehelper.ResourceDrawableIdHelper")
         val soundManagerModule = param.classLoader.loadClass("com.discord.sounds.SoundManagerModule")
+        val themeManager = param.classLoader.loadClass("com.discord.theme.utils.ColorUtilsKt")
         val darkTheme = param.classLoader.loadClass("com.discord.theme.DarkTheme")
         val lightTheme = param.classLoader.loadClass("com.discord.theme.LightTheme")
 
@@ -145,19 +161,36 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
             // TODO: This is questionable
             if (themeFile.exists()) {
                 val themeText = themeFile.readText()
-                if (themeText.length != 0 && themeText != "{}" && themeText != "null") {
+                if (themeText.isNotBlank() && themeText != "{}" && themeText != "null") {
                     val theme = Json { ignoreUnknownKeys = true }.decodeFromString<Theme>(themeText)
-                
-                    for ((key, value) in theme.data.semanticColors.orEmpty()) {
+
+                    // Apply rawColors
+                    theme.data.rawColors?.forEach { (key, value) -> rawColorMap[key.lowercase()] = hexStringToColorInt(value) }
+                    
+                    // Apply semanticColors
+                    theme.data.semanticColors?.forEach { (key, value) ->
                         // TEXT_NORMAL -> getTextNormal
                         val methodName = "get${key.split("_").joinToString("") { it.lowercase().replaceFirstChar { it.uppercase() } }}"
-
-                        for ((i, v) in value.withIndex()) {
-                            when (i) {
+                        value.forEachIndexed { index, v ->
+                            when (index) {
                                 0 -> hookThemeMethod(darkTheme, methodName, hexStringToColorInt(v))
                                 1 -> hookThemeMethod(lightTheme, methodName, hexStringToColorInt(v))
                             }
                         }
+                    }
+
+                    // If there's any rawColors value, hook the color getter
+                    if (!theme.data.rawColors.isNullOrEmpty()) {
+                        val getColorCompat = themeManager.getDeclaredMethod(
+                            "getColorCompat", 
+                            Context::class.java, 
+                            Int::class.javaPrimitiveType
+                        )
+                        XposedBridge.hookMethod(getColorCompat, object : XC_MethodHook() {
+                            override fun afterHookedMethod(param: MethodHookParam) {
+                                param.result = (param.args[0] as Context).resources.getColor(param.args[1] as Int)
+                            }
+                        })
                     }
                 }
             }
@@ -187,7 +220,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
             override fun afterHookedMethod(param: MethodHookParam) {
                 try {
                     val themeString = try { themeFile.readText() } catch (_: Exception) { "null" }
-                    val tempEvalFile = createTempFileFromString("this.__vendetta_theme=" + themeString)
+                    val tempEvalFile = createTempEvalFile("this.__vendetta_theme=" + themeString)
                     
                     XposedBridge.invokeOriginalMethod(loadScriptFromFile, param.thisObject, arrayOf(tempEvalFile.absolutePath, tempEvalFile.absolutePath, param.args[2]))
                     XposedBridge.invokeOriginalMethod(loadScriptFromFile, param.thisObject, arrayOf(vendetta.absolutePath, vendetta.absolutePath, param.args[2]))
