@@ -11,8 +11,8 @@ android {
         applicationId = "com.vendetta.xposed"
         minSdk = 24
         targetSdk = 31
-        versionCode = 3
-        versionName = "1.1.0"
+        versionCode = 4
+        versionName = "1.1.1"
     }
 
     buildTypes {
