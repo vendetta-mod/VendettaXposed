@@ -17,6 +17,7 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.net.HttpURLConnection
 import java.net.URL
 import java.util.HashMap
 
@@ -138,6 +139,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
 
         val cache = File(param.appInfo.dataDir, "cache").also { it.mkdirs() }
         val vendetta = File(cache, "vendetta.js")
+        val etag = File(cache, "vendetta_etag.txt")
 
         lateinit var config: LoaderConfig
         val files = File(param.appInfo.dataDir, "files").also { it.mkdirs() }
@@ -202,16 +204,25 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
             override fun beforeHookedMethod(param: MethodHookParam) {
                 val url = if (config.customLoadUrl.enabled) config.customLoadUrl.url else "https://raw.githubusercontent.com/vendetta-mod/builds/master/vendetta.js"
                 try {
-                    val conn = URL(url).openConnection()
+                    val conn = URL(url).openConnection() as HttpURLConnection
                     conn.connectTimeout = 3000
                     conn.readTimeout = 3000
 
-                    conn.getInputStream().use { input ->
-                        vendetta.outputStream().use { output ->
-                            input.copyTo(output)
-                        }
+                    if (etag.exists() && vendetta.exists()) {
+                        conn.setRequestProperty("If-None-Match", etag.readText())
                     }
-                } catch (_: Exception) {
+
+                    if (conn.responseCode == 200) {
+                        conn.inputStream.use { input ->
+                            vendetta.outputStream().use { output ->
+                                input.copyTo(output)
+                            }
+                        }
+
+                        val header = conn.getHeaderField("Etag")
+                        if (header != null) etag.writeText(header)
+                    }
+                } catch (e: Exception) {
                     Log.e("Vendetta", "Failed to download Vendetta from $url")
                 }
 
