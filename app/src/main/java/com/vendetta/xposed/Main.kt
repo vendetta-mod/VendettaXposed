@@ -202,7 +202,11 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
             override fun beforeHookedMethod(param: MethodHookParam) {
                 val url = if (config.customLoadUrl.enabled) config.customLoadUrl.url else "https://raw.githubusercontent.com/vendetta-mod/builds/master/vendetta.js"
                 try {
-                    URL(url).openStream().use { input ->
+                    val conn = URL(url).openConnection()
+                    conn.connectTimeout = 3000
+                    conn.readTimeout = 3000
+
+                    conn.getInputStream().use { input ->
                         vendetta.outputStream().use { output ->
                             input.copyTo(output)
                         }
