@@ -81,8 +81,6 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
         }
     }
 
-    fun createTempEvalFile(content: String): File = File.createTempFile("eval_", ".js").also { it.writeText(content) }
-
     override fun handleInitPackageResources(resparam: XC_InitPackageResources.InitPackageResourcesParam) {
         if (resparam.packageName == "com.google.android.webview") return
 
@@ -140,6 +138,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
         val cache = File(param.appInfo.dataDir, "cache").also { it.mkdirs() }
         val vendetta = File(cache, "vendetta.js")
         val etag = File(cache, "vendetta_etag.txt")
+        val themeJs = File(cache, "vendetta_theme.js")
 
         lateinit var config: LoaderConfig
         val files = File(param.appInfo.dataDir, "files").also { it.mkdirs() }
@@ -235,9 +234,9 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
             override fun afterHookedMethod(param: MethodHookParam) {
                 try {
                     val themeString = try { themeFile.readText() } catch (_: Exception) { "null" }
-                    val tempEvalFile = createTempEvalFile("this.__vendetta_theme=" + themeString)
-                    
-                    XposedBridge.invokeOriginalMethod(loadScriptFromFile, param.thisObject, arrayOf(tempEvalFile.absolutePath, tempEvalFile.absolutePath, param.args[2]))
+                    themeJs.writeText("this.__vendetta_theme=$themeString")
+
+                    XposedBridge.invokeOriginalMethod(loadScriptFromFile, param.thisObject, arrayOf(themeJs.absolutePath, themeJs.absolutePath, param.args[2]))
                     XposedBridge.invokeOriginalMethod(loadScriptFromFile, param.thisObject, arrayOf(vendetta.absolutePath, vendetta.absolutePath, param.args[2]))
                 } catch (_: Exception) {}
             }
