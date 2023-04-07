@@ -63,7 +63,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
     fun hexStringToColorInt(hexString: String): Int {
         val parsed = Color.parseColor(hexString)
         // Convert 0xRRGGBBAA to 0XAARRGGBB
-        return parsed.takeIf { hexString.length == 7 } ?: (parsed and 0xFFFFFF or (parsed ushr 24))
+        return parsed.takeIf { hexString.length == 7 } ?: parsed and 0xFFFFFF or (parsed ushr 24)
     }
 
     fun hookThemeMethod(themeClass: Class<*>, methodName: String, themeValue: Int) {
@@ -189,7 +189,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
                         )
                         XposedBridge.hookMethod(getColorCompat, object : XC_MethodHook() {
                             override fun afterHookedMethod(param: MethodHookParam) {
-                                param.result = (param.args[0] as Context).resources.getColor(param.args[1] as Int, null)
+                                param.result = (param.args[0] as Context).resources.getColor(param.args[1] as Int)
                             }
                         })
                     }
