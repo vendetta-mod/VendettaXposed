@@ -34,16 +34,16 @@ data class LoaderConfig(
 @Serializable
 data class Author(
     val name: String,
-    val id: String?
+    val id: String? = null
 )
 @Serializable
 data class ThemeData(
     val name: String,
-    val description: String?,
-    val authors: List<Author>?,
+    val description: String? = null,
+    val authors: List<Author>? = null,
     val spec: Int,
-    val semanticColors: Map<String, List<String>>?,
-    val rawColors: Map<String, String>?
+    val semanticColors: Map<String, List<String>>? = null,
+    val rawColors: Map<String, String>? = null
 )
 @Serializable
 data class Theme(
