@@ -2,6 +2,8 @@
 buildscript {
     repositories {
         google()
+        mavenCentral()
+        // We need jcenter for the Xposed API...
         jcenter()
     }
     dependencies {
@@ -16,6 +18,8 @@ buildscript {
 allprojects {
     repositories {
         google()
+        mavenCentral()
+        // See comment in buildscript repos
         jcenter()
     }
 }
