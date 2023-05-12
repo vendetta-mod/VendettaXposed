@@ -65,7 +65,6 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
         val loadScriptFromFile = catalystInstance.getDeclaredMethod("jniLoadScriptFromFile", String::class.java, String::class.java, Boolean::class.javaPrimitiveType)
 
         // TODO: Loader config
-        // TODO: It's fast now, but we have the Hindi timestamps issue. Probably requires a JS side fix.
 
         val hook = object : XC_MethodHook() {
             override fun beforeHookedMethod(param: MethodHookParam): Unit = runBlocking {
@@ -84,7 +83,6 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
                     scope.launch(scope.coroutineContext) {
                         Log.i("Vendetta", "Waiting for HTTP")
                         httpJob.await()
-                        delay(500) // Magic hacky bullshit
 
                         Log.i("Vendetta", "Executing Vendetta")
                         XposedBridge.invokeOriginalMethod(loadScriptFromFile, param.thisObject, arrayOf(bundle.absolutePath, bundle.absolutePath, param.args[2]))
