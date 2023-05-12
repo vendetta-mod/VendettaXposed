@@ -6,7 +6,6 @@ import kotlinx.coroutines.*
 import android.content.res.AssetManager
 import android.content.res.XModuleResources
 import android.util.Log
-import android.os.Build
 import de.robv.android.xposed.IXposedHookLoadPackage
 import de.robv.android.xposed.IXposedHookZygoteInit
 import de.robv.android.xposed.XC_MethodHook
@@ -43,8 +42,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
             try {
                 val client = HttpClient(CIO) {
                     install(HttpTimeout) { requestTimeoutMillis = 1000 }
-                    // TODO: This should follow proper User Agent format
-                    install(UserAgent) { agent = "VendettaXposed on ${Build.MODEL} (${Build.DEVICE}), Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})" }
+                    install(UserAgent) { agent = "VendettaXposed" }
                 }
                 val response: HttpResponse = client.get("https://raw.githubusercontent.com/vendetta-mod/builds/master/vendetta.js") {
                     headers { if (etag.exists() && bundle.exists()) append(HttpHeaders.IfNoneMatch, etag.readText()) }
@@ -67,27 +65,21 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
         // TODO: Loader config
 
         val hook = object : XC_MethodHook() {
-            override fun beforeHookedMethod(param: MethodHookParam): Unit = runBlocking {
-                Log.i("Vendetta", "beforeHookedMethod called")
-
-                Log.i("Vendetta", "Exfiltrating Metro modules")
+            override fun beforeHookedMethod(param: MethodHookParam) {
+                Log.d("Vendetta", "Exfiltrating Metro modules")
                 XposedBridge.invokeOriginalMethod(loadScriptFromAssets,param.thisObject, arrayOf(resources.assets, "assets://js/modules.js", true))
-                Log.i("Vendetta", "Executing identity snippet")
+                Log.d("Vendetta", "Executing identity snippet")
                 XposedBridge.invokeOriginalMethod(loadScriptFromAssets, param.thisObject, arrayOf(resources.assets, "assets://js/identity.js", true))
             }
 
             override fun afterHookedMethod(param: MethodHookParam) {
-                Log.i("Vendetta", "afterHookedMethod called")
-
-                try {
-                    scope.launch(scope.coroutineContext) {
-                        Log.i("Vendetta", "Waiting for HTTP")
+                scope.launch(scope.coroutineContext) {
+                    try {
                         httpJob.await()
-
-                        Log.i("Vendetta", "Executing Vendetta")
+                        Log.d("Vendetta", "Executing Vendetta")
                         XposedBridge.invokeOriginalMethod(loadScriptFromFile, param.thisObject, arrayOf(bundle.absolutePath, bundle.absolutePath, param.args[2]))
-                    }
-                } catch(_: Exception) {}
+                    } catch (_: Exception) {}
+                }
             }
         }
 
