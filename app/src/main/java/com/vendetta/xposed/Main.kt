@@ -3,6 +3,7 @@ package com.vendetta.xposed
 import android.content.Context
 import android.graphics.Color
 import android.content.res.AssetManager
+import android.content.res.Resources
 import android.content.res.XModuleResources
 import android.util.Log
 import de.robv.android.xposed.IXposedHookLoadPackage
@@ -82,7 +83,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
     }
 
     override fun handleInitPackageResources(resparam: XC_InitPackageResources.InitPackageResourcesParam) {
-        if (resparam.packageName == "com.google.android.webview") return
+        if (resparam.packageName.contains(".webview")) return
 
         // rawColorMap is initialized during handleLoadPackage
         rawColorMap.forEach { (key, value) -> 
@@ -95,11 +96,9 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
     }
 
     override fun handleLoadPackage(param: XC_LoadPackage.LoadPackageParam) {
-        if (param.packageName == "com.google.android.webview") return
-        
+        if (param.packageName.contains(".webview")) return
+
         val catalystInstanceImpl = param.classLoader.loadClass("com.facebook.react.bridge.CatalystInstanceImpl")
-        val resourceDrawableIdHelper = param.classLoader.loadClass("com.facebook.react.views.imagehelper.ResourceDrawableIdHelper")
-        val soundManagerModule = param.classLoader.loadClass("com.discord.sounds.SoundManagerModule")
         val themeManager = param.classLoader.loadClass("com.discord.theme.utils.ColorUtilsKt")
         val darkTheme = param.classLoader.loadClass("com.discord.theme.DarkTheme")
         val lightTheme = param.classLoader.loadClass("com.discord.theme.LightTheme")
@@ -116,23 +115,6 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
             String::class.java,
             String::class.java,
             Boolean::class.javaPrimitiveType
-        ).apply { isAccessible = true }
-
-        val getResourceDrawableId = resourceDrawableIdHelper.getDeclaredMethod(
-            "getResourceDrawableId",
-            Context::class.java,
-            String::class.java
-        ).apply { isAccessible = true }
-
-        val mResourceDrawableIdMapField = resourceDrawableIdHelper.getDeclaredField("mResourceDrawableIdMap").apply {
-            isAccessible = true
-        }
-
-        val resolveRawResId = soundManagerModule.getDeclaredMethod(
-            "resolveRawResId",
-            Context::class.java,
-            String::class.java,
-            String::class.java
         ).apply { isAccessible = true }
 
         val cache = File(param.appInfo.dataDir, "cache").also { it.mkdirs() }
@@ -189,6 +171,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
                         )
                         XposedBridge.hookMethod(getColorCompat, object : XC_MethodHook() {
                             override fun afterHookedMethod(param: MethodHookParam) {
+                                @Suppress("DEPRECATION")
                                 param.result = (param.args[0] as Context).resources.getColor(param.args[1] as Int)
                             }
                         })
@@ -244,45 +227,21 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
 
         XposedBridge.hookMethod(loadScriptFromAssets, patch)
         XposedBridge.hookMethod(loadScriptFromFile, patch)
-        XposedBridge.hookMethod(getResourceDrawableId, object: XC_MethodHook() {
-            @Suppress("UNCHECKED_CAST")
-            override fun beforeHookedMethod(param: MethodHookParam) {
-                val context = param.args[0] as Context
-                val str = param.args[1] as String?
-                val mResourceDrawableIdMap = mResourceDrawableIdMapField.get(param.thisObject) as HashMap<String, Int>
-                if(str.isNullOrEmpty()) {
-                    param.result = 0; return
-                }
-                val replace = str.replace("-", "_")
-                try {
-                    param.result = Integer.parseInt(replace); return
-                } catch (e: Throwable) {
-                    synchronized(param.thisObject) {
-                        if(mResourceDrawableIdMap.containsKey(replace)) {
-                            param.result = mResourceDrawableIdMap[replace]!!.toInt()
-                        }
 
-                        // Hardcode package name to fix resource loading when patched app has modified package name
-                        val identifier = context.resources.getIdentifier(replace, "drawable", "com.discord")
-                        mResourceDrawableIdMap[replace] = identifier
-                        param.result = identifier; return
-                    }
-                }
-            }
-        })
-        XposedBridge.hookMethod(resolveRawResId, object: XC_MethodHook() {
-            override fun beforeHookedMethod(param: MethodHookParam) {
-                val context = param.args[0] as Context
-                val str = param.args[1] as String
-                val str2 = param.args[2] as String
+        // Fighting the side effects of changing the package name
+        if (param.packageName != "com.discord") {
+            val getIdentifier = Resources::class.java.getDeclaredMethod(
+                "getIdentifier", 
+                String::class.java, 
+                String::class.java, 
+                String::class.java
+            );
 
-                // Hardcode package name to fix resource loading when patched app has modified package name
-                val identifier = context.resources.getIdentifier(str, str2, "com.discord")
-                if(identifier > 0) {
-                    param.result = identifier; return
+            XposedBridge.hookMethod(getIdentifier, object: XC_MethodHook() {
+                override fun beforeHookedMethod(mhparam: MethodHookParam) = with(mhparam) {
+                    if (args[2] == param.packageName) args[2] = "com.discord"
                 }
-                throw IllegalArgumentException("Trying to resolve unknown sound $str")
-            }
-        })
+            })
+        }
     }
 }
