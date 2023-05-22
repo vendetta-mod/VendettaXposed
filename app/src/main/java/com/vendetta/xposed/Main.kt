@@ -232,8 +232,8 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
         if (param.packageName != "com.discord") {
             val getIdentifier = Resources::class.java.getDeclaredMethod(
                 "getIdentifier", 
-                String::class.java, 
-                String::class.java, 
+                String::class.java,
+                String::class.java,
                 String::class.java
             );
 
