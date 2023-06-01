@@ -1,0 +1,3 @@
+[submodule "app/src/main/assets/js/frendetta"]
+	path = app/src/main/assets/js/frendetta
+	url = https://github.com/vendetta-mod/frendetta

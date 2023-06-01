@@ -67,7 +67,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage {
         val hook = object : XC_MethodHook() {
             override fun beforeHookedMethod(param: MethodHookParam) {
                 Log.d("Vendetta", "Exfiltrating Metro modules")
-                XposedBridge.invokeOriginalMethod(loadScriptFromAssets,param.thisObject, arrayOf(resources.assets, "assets://js/modules.js", true))
+                XposedBridge.invokeOriginalMethod(loadScriptFromAssets,param.thisObject, arrayOf(resources.assets, "assets://js/frendetta/resources/modules.js", true))
                 Log.d("Vendetta", "Executing identity snippet")
                 XposedBridge.invokeOriginalMethod(loadScriptFromAssets, param.thisObject, arrayOf(resources.assets, "assets://js/identity.js", true))
             }
