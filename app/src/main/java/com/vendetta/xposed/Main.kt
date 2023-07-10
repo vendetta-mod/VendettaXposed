@@ -1,11 +1,15 @@
 package com.vendetta.xposed
 
+import android.app.AndroidAppHelper
 import android.content.Context
 import android.graphics.Color
 import android.content.res.AssetManager
 import android.content.res.Resources
 import android.content.res.XModuleResources
+import android.os.Build
 import android.util.Log
+import androidx.core.content.ContextCompat
+import com.google.gson.Gson
 import de.robv.android.xposed.IXposedHookLoadPackage
 import de.robv.android.xposed.IXposedHookZygoteInit
 import de.robv.android.xposed.IXposedHookInitPackageResources
@@ -53,6 +57,15 @@ data class Theme(
     val data: ThemeData
 )
 
+@Serializable
+data class SysColors(
+    val neutral1: List<String>,
+    val neutral2: List<String>,
+    val accent1: List<String>,
+    val accent2: List<String>,
+    val accent3: List<String>
+)
+
 class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPackageResources {
     private lateinit var modResources: XModuleResources
     private val rawColorMap = mutableMapOf<String, Int>()
@@ -80,6 +93,14 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
         } catch (ex: NoSuchMethodException) {
             // do nothing
         }
+    }
+
+    fun sysColorToHexString(context: Context, id: Int): String {
+        val clr = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            ContextCompat.getColor(context, id)
+        } else 0
+
+        return java.lang.String.format("#%06X", 0xFFFFFF and clr)
     }
 
     override fun handleInitPackageResources(resparam: XC_InitPackageResources.InitPackageResourcesParam) {
@@ -121,6 +142,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
         val vendetta = File(cache, "vendetta.js")
         val etag = File(cache, "vendetta_etag.txt")
         val themeJs = File(cache, "vendetta_theme.js")
+        val syscolorsJs = File(cache, "vendetta_syscolors.js")
 
         lateinit var config: LoaderConfig
         val files = File(param.appInfo.dataDir, "files").also { it.mkdirs() }
@@ -216,10 +238,95 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
 
             override fun afterHookedMethod(param: MethodHookParam) {
                 try {
+                    val context = AndroidAppHelper.currentApplication()
                     val themeString = try { themeFile.readText() } catch (_: Exception) { "null" }
                     themeJs.writeText("this.__vendetta_theme=$themeString")
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        val gson = Gson()
+                        val colors = mutableMapOf<String, List<String>>()
+                        colors["neutral1"] = arrayOf(
+                            android.R.color.system_neutral1_0,
+                            android.R.color.system_neutral1_10,
+                            android.R.color.system_neutral1_50,
+                            android.R.color.system_neutral1_100,
+                            android.R.color.system_neutral1_200,
+                            android.R.color.system_neutral1_300,
+                            android.R.color.system_neutral1_400,
+                            android.R.color.system_neutral1_500,
+                            android.R.color.system_neutral1_600,
+                            android.R.color.system_neutral1_700,
+                            android.R.color.system_neutral1_800,
+                            android.R.color.system_neutral1_900,
+                            android.R.color.system_neutral1_1000
+                        ).map { sysColorToHexString(context, it) }
+                        colors["neutral2"] = arrayOf(
+                            android.R.color.system_neutral2_0,
+                            android.R.color.system_neutral2_10,
+                            android.R.color.system_neutral2_50,
+                            android.R.color.system_neutral2_100,
+                            android.R.color.system_neutral2_200,
+                            android.R.color.system_neutral2_300,
+                            android.R.color.system_neutral2_400,
+                            android.R.color.system_neutral2_500,
+                            android.R.color.system_neutral2_600,
+                            android.R.color.system_neutral2_700,
+                            android.R.color.system_neutral2_800,
+                            android.R.color.system_neutral2_900,
+                            android.R.color.system_neutral2_1000
+                        ).map { sysColorToHexString(context, it) }
+                        colors["accent1"] = arrayOf(
+                            android.R.color.system_accent1_0,
+                            android.R.color.system_accent1_10,
+                            android.R.color.system_accent1_50,
+                            android.R.color.system_accent1_100,
+                            android.R.color.system_accent1_200,
+                            android.R.color.system_accent1_300,
+                            android.R.color.system_accent1_400,
+                            android.R.color.system_accent1_500,
+                            android.R.color.system_accent1_600,
+                            android.R.color.system_accent1_700,
+                            android.R.color.system_accent1_800,
+                            android.R.color.system_accent1_900,
+                            android.R.color.system_accent1_1000
+                        ).map { sysColorToHexString(context, it) }
+                        colors["accent2"] = arrayOf(
+                            android.R.color.system_accent2_0,
+                            android.R.color.system_accent2_10,
+                            android.R.color.system_accent2_50,
+                            android.R.color.system_accent2_100,
+                            android.R.color.system_accent2_200,
+                            android.R.color.system_accent2_300,
+                            android.R.color.system_accent2_400,
+                            android.R.color.system_accent2_500,
+                            android.R.color.system_accent2_600,
+                            android.R.color.system_accent2_700,
+                            android.R.color.system_accent2_800,
+                            android.R.color.system_accent2_900,
+                            android.R.color.system_accent2_1000
+                        ).map { sysColorToHexString(context, it) }
+                        colors["accent3"] = arrayOf(
+                            android.R.color.system_accent3_0,
+                            android.R.color.system_accent3_10,
+                            android.R.color.system_accent3_50,
+                            android.R.color.system_accent3_100,
+                            android.R.color.system_accent3_200,
+                            android.R.color.system_accent3_300,
+                            android.R.color.system_accent3_400,
+                            android.R.color.system_accent3_500,
+                            android.R.color.system_accent3_600,
+                            android.R.color.system_accent3_700,
+                            android.R.color.system_accent3_800,
+                            android.R.color.system_accent3_900,
+                            android.R.color.system_accent3_1000
+                        ).map { sysColorToHexString(context, it) }
+
+                        syscolorsJs.writeText("window.__vendetta_syscolors=${gson.toJson(colors)}")
+                    } else {
+                        syscolorsJs.writeText("window.__vendetta_syscolors=null")
+                    }
 
                     XposedBridge.invokeOriginalMethod(loadScriptFromFile, param.thisObject, arrayOf(themeJs.absolutePath, themeJs.absolutePath, param.args[2]))
+                    XposedBridge.invokeOriginalMethod(loadScriptFromFile, param.thisObject, arrayOf(syscolorsJs.absolutePath, syscolorsJs.absolutePath, param.args[2]))
                     XposedBridge.invokeOriginalMethod(loadScriptFromFile, param.thisObject, arrayOf(vendetta.absolutePath, vendetta.absolutePath, param.args[2]))
                 } catch (_: Exception) {}
             }
