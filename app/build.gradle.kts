@@ -1,3 +1,5 @@
+import android.annotation.SuppressLint
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -5,12 +7,12 @@ plugins {
 }
 
 android {
-    compileSdk = 33
+    compileSdk = 31
 
     defaultConfig {
         applicationId = "com.vendetta.xposed"
         minSdk = 24
-        targetSdk = 33
+        targetSdk = 31
         versionCode = 8
         versionName = "1.1.5"
     }
