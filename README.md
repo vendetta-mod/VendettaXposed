@@ -16,7 +16,7 @@
 2. do your root magic and install the xposed module directly or whatever
 
 > **Note**
-> If you want to revert to the original XPosed module, just press "Clear cache"
+> If you want to revert to the original XPosed module, just press "Reset module location"
 
 # VendettaXposed
 
