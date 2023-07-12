@@ -1,12 +1,22 @@
 # HOW TO INSTALL THIS FORK USING VENDETTA MANAGER
 
 1. download [vendetta.gabe616.apk](https://github.com/Gabe616/VendettaMod-VendettaXposed/releases/download/8/vendetta.gabe616.apk) from the latest release
-2. move **vendetta.gabe616.apk** into **/storage/emulated/0/Android/data/dev.beefers.vendetta.manager/cache** using the stock android files app
-3. in **Vendetta Manager**, replace **vendetta.apk** with **vendetta.gabe616.apk** in the **Module location** input
-4. reinstall **Vendetta**
 
-> **Warning**
-> Do NOT press "Clear cache" after you're done, you'll have to redo steps 2-4
+## Non-Root
+
+2. in **Vendetta Manager**'s settings under **Developer only**, set the **Module location** to
+   ```
+   /storage/emulated/0/Download/vendetta.gabe616.apk
+   ```
+   - developer mode is enabled by going to the Home page > Info > tapping on version
+3. reinstall **Vendetta**
+
+## Root
+
+2. do your root magic and install the xposed module directly or whatever
+
+> **Info**
+> If you want to revert to the original XPosed module, just press "Clear cache"
 
 # VendettaXposed
 
