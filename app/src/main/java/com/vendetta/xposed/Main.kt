@@ -320,9 +320,9 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
                             android.R.color.system_accent3_1000
                         ).map { sysColorToHexString(context, it) }
 
-                        syscolorsJs.writeText("window.__vendetta_syscolors=${gson.toJson(colors)}")
+                        syscolorsJs.writeText("this.__vendetta_syscolors=${gson.toJson(colors)}")
                     } else {
-                        syscolorsJs.writeText("window.__vendetta_syscolors=null")
+                        syscolorsJs.writeText("this.__vendetta_syscolors=null")
                     }
 
                     XposedBridge.invokeOriginalMethod(loadScriptFromFile, param.thisObject, arrayOf(themeJs.absolutePath, themeJs.absolutePath, param.args[2]))
