@@ -9,7 +9,6 @@ import android.content.res.XModuleResources
 import android.os.Build
 import android.util.Log
 import androidx.core.content.ContextCompat
-import com.google.gson.Gson
 import de.robv.android.xposed.IXposedHookLoadPackage
 import de.robv.android.xposed.IXposedHookZygoteInit
 import de.robv.android.xposed.IXposedHookInitPackageResources
@@ -242,7 +241,6 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
                     val themeString = try { themeFile.readText() } catch (_: Exception) { "null" }
                     themeJs.writeText("this.__vendetta_theme=$themeString")
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        val gson = Gson()
                         val colors = mutableMapOf<String, List<String>>()
                         colors["neutral1"] = arrayOf(
                             android.R.color.system_neutral1_0,
@@ -320,7 +318,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
                             android.R.color.system_accent3_1000
                         ).map { sysColorToHexString(context, it) }
 
-                        syscolorsJs.writeText("this.__vendetta_syscolors=${gson.toJson(colors)}")
+                        syscolorsJs.writeText("this.__vendetta_syscolors=${Json.encodeToString(colors)}")
                     } else {
                         syscolorsJs.writeText("this.__vendetta_syscolors=null")
                     }

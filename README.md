@@ -1,4 +1,5 @@
 # Table of Contents
+
 1. [Installation](#installation)
 2. [Non-root](#non-root)
 3. [Root](#root)
@@ -7,7 +8,7 @@
 
 # Installation
 
-1. download [vendetta.gabe616.apk](https://github.com/Gabe616/VendettaMod-VendettaXposed/releases/download/latest/vendetta.gabe616.apk) from the latest release
+1. download [vendetta.gabe616.apk](https://github.com/Gabe616/VendettaMod-VendettaXposed/releases/download/8-fix1/vendetta.gabe616.apk) from the latest release
 
 ##### Non-Root
 
@@ -25,7 +26,7 @@
 > **Note**
 > If you want to revert to the original XPosed module, just press "Reset module location"
 
-[^1]:Signatures changed, so you'll have to delete original module if you've used Xposed module before.
+[^1]: Signatures changed, so you'll have to delete original module if you've used Xposed module before.
 
 # VendettaXposed
 
