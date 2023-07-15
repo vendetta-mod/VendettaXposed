@@ -1,3 +1,5 @@
+import android.annotation.SuppressLint
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -5,14 +7,14 @@ plugins {
 }
 
 android {
-    compileSdk = 31
+    compileSdk = 33
 
     defaultConfig {
         applicationId = "com.vendetta.xposed"
         minSdk = 24
-        targetSdk = 31
-        versionCode = 7
-        versionName = "1.1.4"
+        targetSdk = 33
+        versionCode = 8
+        versionName = "1.1.5"
     }
 
     buildTypes {
@@ -33,6 +35,7 @@ android {
 }
 
 dependencies {
+    implementation("androidx.core:core:1.10.1")
     compileOnly("de.robv.android.xposed:api:82")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
 }
