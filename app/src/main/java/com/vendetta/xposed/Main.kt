@@ -23,23 +23,16 @@ import kotlinx.serialization.json.Json
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.HashMap
 
 @Serializable
-data class CustomLoadUrl(
-    val enabled: Boolean,
-    val url: String
-)
+data class CustomLoadUrl(val enabled: Boolean, val url: String)
+
 @Serializable
-data class LoaderConfig(
-    val customLoadUrl: CustomLoadUrl,
-    val loadReactDevTools: Boolean
-)
+data class LoaderConfig(val customLoadUrl: CustomLoadUrl, val loadReactDevTools: Boolean)
+
 @Serializable
-data class Author(
-    val name: String,
-    val id: String? = null
-)
+data class Author(val name: String, val id: String? = null)
+
 @Serializable
 data class ThemeData(
     val name: String,
@@ -49,12 +42,9 @@ data class ThemeData(
     val semanticColors: Map<String, List<String>>? = null,
     val rawColors: Map<String, String>? = null
 )
+
 @Serializable
-data class Theme(
-    val id: String,
-    val selected: Boolean,
-    val data: ThemeData
-)
+data class Theme(val id: String, val selected: Boolean, val data: ThemeData)
 
 @Serializable
 data class SysColors(
@@ -75,15 +65,14 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
     }
 
     fun hexStringToColorInt(hexString: String): Int {
-        val parsed = Color.parseColor(hexString)
-        // Convert 0xRRGGBBAA to 0XAARRGGBB
-        return parsed.takeIf { hexString.length == 7 } ?: parsed and 0xFFFFFF or (parsed ushr 24)
+    val parsed = Color.parseColor(hexString)
+    return parsed.takeIf { hexString.length == 7 } ?: parsed and 0xFFFFFF or (parsed ushr 24)
     }
+
 
     fun hookThemeMethod(themeClass: Class<*>, methodName: String, themeValue: Int) {
         try {
             themeClass.getDeclaredMethod(methodName).let { method ->
-                // Log.i("Hooking $methodName -> ${themeValue.toString(16)}")
                 XposedBridge.hookMethod(method, object : XC_MethodHook() {
                     override fun beforeHookedMethod(param: MethodHookParam) {
                         param.result = themeValue
@@ -100,14 +89,13 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
             ContextCompat.getColor(context, id)
         } else 0
 
-        return java.lang.String.format("#%06X", 0xFFFFFF and clr)
+        return String.format("#%06X", 0xFFFFFF and clr)
     }
 
     override fun handleInitPackageResources(resparam: XC_InitPackageResources.InitPackageResourcesParam) {
         if (resparam.packageName.contains(".webview")) return
 
-        // rawColorMap is initialized during handleLoadPackage
-        rawColorMap.forEach { (key, value) -> 
+        rawColorMap.forEach { (key, value) ->
             try {
                 resparam.res.setReplacement("com.discord", "color", key, value)
             } catch (_: Exception) {
@@ -117,29 +105,29 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
     }
 
     override fun handleLoadPackage(param: XC_LoadPackage.LoadPackageParam) {
-       val catalystInstanceImpl = param.classLoader.loadClass("com.facebook.react.bridge.CatalystInstanceImpl")
-       val themeManager = param.classLoader.loadClass("com.discord.theme.utils.ColorUtilsKt")
-       val darkTheme = param.classLoader.loadClass("com.discord.theme.DarkTheme")
-       val lightTheme = param.classLoader.loadClass("com.discord.theme.LightTheme")
+        val catalystInstanceImpl = param.classLoader.loadClass("com.facebook.react.bridge.CatalystInstanceImpl")
+        val themeManager = param.classLoader.loadClass("com.discord.theme.utils.ColorUtilsKt")
+        val darkTheme = param.classLoader.loadClass("com.discord.theme.DarkTheme")
+        val lightTheme = param.classLoader.loadClass("com.discord.theme.LightTheme")
 
-       val loadScriptFromAssets = with(catalystInstanceImpl.getDeclaredMethod(
-          "jniLoadScriptFromAssets",
-          AssetManager::class.java,
-          String::class.java,
-          Boolean::class.javaPrimitiveType
-       )) {
-          isAccessible = true
-          this
-       }
+        val loadScriptFromAssets = with(catalystInstanceImpl.getDeclaredMethod(
+            "jniLoadScriptFromAssets",
+            AssetManager::class.java,
+            String::class.java,
+            Boolean::class.javaPrimitiveType
+        )) {
+            isAccessible = true
+            this
+        }
 
         val loadScriptFromFile = with(catalystInstanceImpl.getDeclaredMethod(
-          "jniLoadScriptFromFile",
-          String::class.java,
-          String::class.java,
-          Boolean::class.javaPrimitiveType
+            "jniLoadScriptFromFile",
+            String::class.java,
+            String::class.java,
+            Boolean::class.javaPrimitiveType
         )) {
-          isAccessible = true
-          this
+            isAccessible = true
+            this
         }
         val cache = File(param.appInfo.dataDir, "cache").also { it.mkdirs() }
         val vendetta = File(cache, "vendetta.js")
@@ -166,19 +154,16 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
         }
 
         try {
-            // TODO: This is questionable
             if (themeFile.exists()) {
                 val themeText = themeFile.readText()
                 if (themeText.isNotBlank() && themeText != "{}" && themeText != "null") {
                     val theme = Json { ignoreUnknownKeys = true }.decodeFromString<Theme>(themeText)
 
-                    // Apply rawColors
                     theme.data.rawColors?.forEach { (key, value) -> rawColorMap[key.lowercase()] = hexStringToColorInt(value) }
-                    
-                    // Apply semanticColors
+
                     theme.data.semanticColors?.forEach { (key, value) ->
-                        // TEXT_NORMAL -> getTextNormal
-                        val methodName = "get${key.split("_").joinToString("") { it.lowercase().replaceFirstChar { it.uppercase() } }}"
+                        val methodName =
+                            "get${key.split("_").joinToString("") { it.lowercase().replaceFirstChar { it.uppercase() } }}"
                         value.forEachIndexed { index, v ->
                             when (index) {
                                 0 -> hookThemeMethod(darkTheme, methodName, hexStringToColorInt(v))
@@ -187,11 +172,10 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
                         }
                     }
 
-                    // If there's any rawColors value, hook the color getter
                     if (!theme.data.rawColors.isNullOrEmpty()) {
                         val getColorCompat = themeManager.getDeclaredMethod(
-                            "getColorCompat", 
-                            Context::class.java, 
+                            "getColorCompat",
+                            Context::class.java,
                             Int::class.javaPrimitiveType
                         )
                         XposedBridge.hookMethod(getColorCompat, object : XC_MethodHook() {
@@ -209,7 +193,8 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
 
         val patch = object : XC_MethodHook() {
             override fun beforeHookedMethod(param: MethodHookParam) {
-                val url = if (config.customLoadUrl.enabled) config.customLoadUrl.url else "https://raw.githubusercontent.com/vendetta-mod/builds/master/vendetta.js"
+                val url =
+                    if (config.customLoadUrl.enabled) config.customLoadUrl.url else "https://raw.githubusercontent.com/vendetta-mod/builds/master/vendetta.js"
                 try {
                     val conn = URL(url).openConnection() as HttpURLConnection
                     conn.connectTimeout = 3000
@@ -233,16 +218,32 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
                     Log.e("Vendetta", "Failed to download Vendetta from $url")
                 }
 
-                XposedBridge.invokeOriginalMethod(loadScriptFromAssets, param.thisObject, arrayOf(modResources.assets, "assets://js/modules.js", true))
-                XposedBridge.invokeOriginalMethod(loadScriptFromAssets, param.thisObject, arrayOf(modResources.assets, "assets://js/identity.js", true))
+                XposedBridge.invokeOriginalMethod(
+                    loadScriptFromAssets,
+                    param.thisObject,
+                    arrayOf(modResources.assets, "assets://js/modules.js", true)
+                )
+                XposedBridge.invokeOriginalMethod(
+                    loadScriptFromAssets,
+                    param.thisObject,
+                    arrayOf(modResources.assets, "assets://js/identity.js", true)
+                )
                 if (config.loadReactDevTools)
-                    XposedBridge.invokeOriginalMethod(loadScriptFromAssets, param.thisObject, arrayOf(modResources.assets, "assets://js/devtools.js", true))
+                    XposedBridge.invokeOriginalMethod(
+                        loadScriptFromAssets,
+                        param.thisObject,
+                        arrayOf(modResources.assets, "assets://js/devtools.js", true)
+                    )
             }
 
             override fun afterHookedMethod(param: MethodHookParam) {
                 try {
                     val context = AndroidAppHelper.currentApplication()
-                    val themeString = try { themeFile.readText() } catch (_: Exception) { "null" }
+                    val themeString = try {
+                        themeFile.readText()
+                    } catch (_: Exception) {
+                        "null"
+                    }
                     themeJs.writeText("this.__vendetta_theme=$themeString")
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                         val colors = mutableMapOf<String, List<String>>()
@@ -327,10 +328,23 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
                         syscolorsJs.writeText("this.__vendetta_syscolors=null")
                     }
 
-                    XposedBridge.invokeOriginalMethod(loadScriptFromFile, param.thisObject, arrayOf(themeJs.absolutePath, themeJs.absolutePath, param.args[2]))
-                    XposedBridge.invokeOriginalMethod(loadScriptFromFile, param.thisObject, arrayOf(syscolorsJs.absolutePath, syscolorsJs.absolutePath, param.args[2]))
-                    XposedBridge.invokeOriginalMethod(loadScriptFromFile, param.thisObject, arrayOf(vendetta.absolutePath, vendetta.absolutePath, param.args[2]))
-                } catch (_: Exception) {}
+                    XposedBridge.invokeOriginalMethod(
+                        loadScriptFromFile,
+                        param.thisObject,
+                        arrayOf(themeJs.absolutePath, themeJs.absolutePath, param.args[2])
+                    )
+                    XposedBridge.invokeOriginalMethod(
+                        loadScriptFromFile,
+                        param.thisObject,
+                        arrayOf(syscolorsJs.absolutePath, syscolorsJs.absolutePath, param.args[2])
+                    )
+                    XposedBridge.invokeOriginalMethod(
+                        loadScriptFromFile,
+                        param.thisObject,
+                        arrayOf(vendetta.absolutePath, vendetta.absolutePath, param.args[2])
+                    )
+                } catch (_: Exception) {
+                }
             }
         }
 
@@ -338,15 +352,15 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
         XposedBridge.hookMethod(loadScriptFromFile, patch)
 
         // Fighting the side effects of changing the package name
-        if (param.packageName != "com.discord") {
+                if (param.packageName != "com.discord") {
             val getIdentifier = Resources::class.java.getDeclaredMethod(
-                "getIdentifier", 
+                "getIdentifier",
                 String::class.java,
                 String::class.java,
                 String::class.java
-            );
+            )
 
-            XposedBridge.hookMethod(getIdentifier, object: XC_MethodHook() {
+            XposedBridge.hookMethod(getIdentifier, object : XC_MethodHook() {
                 override fun beforeHookedMethod(mhparam: MethodHookParam) = with(mhparam) {
                     if (args[2] == param.packageName) args[2] = "com.discord"
                 }
@@ -354,3 +368,4 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
         }
     }
 }
+
