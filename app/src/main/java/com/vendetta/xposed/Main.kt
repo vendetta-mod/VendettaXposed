@@ -25,6 +25,8 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.HashMap
 
+System.loadLibrary("reactnativejni")
+
 @Serializable
 data class CustomLoadUrl(
     val enabled: Boolean,
@@ -117,7 +119,6 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
 
     override fun handleLoadPackage(param: XC_LoadPackage.LoadPackageParam) {
         if (param.packageName.contains(".webview")) return
-        System.loadLibrary("reactnativejni")
         
         val catalystInstanceImpl = param.classLoader.loadClass("com.facebook.react.bridge.CatalystInstanceImpl")
         val themeManager = param.classLoader.loadClass("com.discord.theme.utils.ColorUtilsKt")
