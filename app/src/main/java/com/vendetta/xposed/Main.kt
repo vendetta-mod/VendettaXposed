@@ -117,27 +117,30 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
     }
 
     override fun handleLoadPackage(param: XC_LoadPackage.LoadPackageParam) {
-        if (param.packageName.contains(".webview")) return
-        
-        val catalystInstanceImpl = param.classLoader.loadClass("com.facebook.react.bridge.CatalystInstanceImpl")
-        val themeManager = param.classLoader.loadClass("com.discord.theme.utils.ColorUtilsKt")
-        val darkTheme = param.classLoader.loadClass("com.discord.theme.DarkTheme")
-        val lightTheme = param.classLoader.loadClass("com.discord.theme.LightTheme")
+       val catalystInstanceImpl = param.classLoader.loadClass("com.facebook.react.bridge.CatalystInstanceImpl")
+       val themeManager = param.classLoader.loadClass("com.discord.theme.utils.ColorUtilsKt")
+       val darkTheme = param.classLoader.loadClass("com.discord.theme.DarkTheme")
+       val lightTheme = param.classLoader.loadClass("com.discord.theme.LightTheme")
 
-        val loadScriptFromAssets = catalystInstanceImpl.getDeclaredMethod(
-            "jniLoadScriptFromAssets",
-            AssetManager::class.java,
-            String::class.java,
-            Boolean::class.javaPrimitiveType
-        )
+       val loadScriptFromAssets = with(catalystInstanceImpl.getDeclaredMethod(
+          "jniLoadScriptFromAssets",
+          AssetManager::class.java,
+          String::class.java,
+          Boolean::class.javaPrimitiveType
+       )) {
+          isAccessible = true
+          this
+       }
 
-        val loadScriptFromFile = catalystInstanceImpl.getDeclaredMethod(
-            "jniLoadScriptFromFile",
-            String::class.java,
-            String::class.java,
-            Boolean::class.javaPrimitiveType
-        ).apply { isAccessible = true }
-
+        val loadScriptFromFile = with(catalystInstanceImpl.getDeclaredMethod(
+          "jniLoadScriptFromFile",
+          String::class.java,
+          String::class.java,
+          Boolean::class.javaPrimitiveType
+        )) {
+          isAccessible = true
+          this
+        }
         val cache = File(param.appInfo.dataDir, "cache").also { it.mkdirs() }
         val vendetta = File(cache, "vendetta.js")
         val etag = File(cache, "vendetta_etag.txt")
