@@ -51,3 +51,4 @@ jobs:
               with:
                 name: app-release
                 path: /tmp/vendetta/apks/app-release.apk
+
