@@ -25,8 +25,6 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.HashMap
 
-System.loadLibrary("reactnativejni")
-
 @Serializable
 data class CustomLoadUrl(
     val enabled: Boolean,
@@ -73,6 +71,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
 
     override fun initZygote(startupParam: IXposedHookZygoteInit.StartupParam) {
         modResources = XModuleResources.createInstance(startupParam.modulePath, null)
+        System.loadLibrary("reactnativejni")
     }
 
     fun hexStringToColorInt(hexString: String): Int {
