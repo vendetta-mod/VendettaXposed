@@ -58,10 +58,10 @@ data class SysColors(
 class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPackageResources {
     private lateinit var modResources: XModuleResources
     private val rawColorMap = mutableMapOf<String, Int>()
+    System.loadLibrary("reactnativejni", param.classLoader)
 
     override fun initZygote(startupParam: IXposedHookZygoteInit.StartupParam) {
         modResources = XModuleResources.createInstance(startupParam.modulePath, null)
-        System.loadLibrary("reactnativejni")
     }
 
     fun hexStringToColorInt(hexString: String): Int {
