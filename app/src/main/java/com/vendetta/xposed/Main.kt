@@ -58,8 +58,7 @@ data class SysColors(
 class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPackageResources {
     private lateinit var modResources: XModuleResources
     private val rawColorMap = mutableMapOf<String, Int>()
-    System.loadLibrary("reactnativejni", param.classLoader)
-
+ 
     override fun initZygote(startupParam: IXposedHookZygoteInit.StartupParam) {
         modResources = XModuleResources.createInstance(startupParam.modulePath, null)
     }
@@ -105,6 +104,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
     }
 
     override fun handleLoadPackage(param: XC_LoadPackage.LoadPackageParam) {
+        System.loadLibrary("reactnativejni", param.classLoader)
         val catalystInstanceImpl = param.classLoader.loadClass("com.facebook.react.bridge.CatalystInstanceImpl")
         val themeManager = param.classLoader.loadClass("com.discord.theme.utils.ColorUtilsKt")
         val darkTheme = param.classLoader.loadClass("com.discord.theme.DarkTheme")
