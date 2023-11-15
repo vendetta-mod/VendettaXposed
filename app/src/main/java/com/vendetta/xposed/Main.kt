@@ -58,11 +58,11 @@ data class SysColors(
 class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPackageResources {
     private lateinit var modResources: XModuleResources
     private val rawColorMap = mutableMapOf<String, Int>()
- 
+
     override fun initZygote(startupParam: IXposedHookZygoteInit.StartupParam) {
         modResources = XModuleResources.createInstance(startupParam.modulePath, null)
+        System.loadLibrary("reactnativejni")
     }
-
     fun hexStringToColorInt(hexString: String): Int {
     val parsed = Color.parseColor(hexString)
     return parsed.takeIf { hexString.length == 7 } ?: parsed and 0xFFFFFF or (parsed ushr 24)
@@ -104,7 +104,6 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
     }
 
     override fun handleLoadPackage(param: XC_LoadPackage.LoadPackageParam) {
-        System.loadLibrary("reactnativejni")
         val catalystInstanceImpl = param.classLoader.loadClass("com.facebook.react.bridge.CatalystInstanceImpl")
         val themeManager = param.classLoader.loadClass("com.discord.theme.utils.ColorUtilsKt")
         val darkTheme = param.classLoader.loadClass("com.discord.theme.DarkTheme")
