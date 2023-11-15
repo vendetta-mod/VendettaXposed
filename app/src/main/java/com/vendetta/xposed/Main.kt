@@ -104,7 +104,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
     }
 
     override fun handleLoadPackage(param: XC_LoadPackage.LoadPackageParam) {
-        System.loadLibrary("reactnativejni", param.classLoader)
+        System.loadLibrary("reactnativejni")
         val catalystInstanceImpl = param.classLoader.loadClass("com.facebook.react.bridge.CatalystInstanceImpl")
         val themeManager = param.classLoader.loadClass("com.discord.theme.utils.ColorUtilsKt")
         val darkTheme = param.classLoader.loadClass("com.discord.theme.DarkTheme")
