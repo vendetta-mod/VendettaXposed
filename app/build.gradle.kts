@@ -36,6 +36,6 @@ android {
 
 dependencies {
     implementation("androidx.core:core:1.10.1")
-    compileOnly("de.robv.android.xposed:api:82")
+    compileOnly("de.robv.android.xposed:api:89")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
 }
