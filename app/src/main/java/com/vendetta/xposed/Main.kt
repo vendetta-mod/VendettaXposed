@@ -61,7 +61,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
 
     override fun initZygote(startupParam: IXposedHookZygoteInit.StartupParam) {
         modResources = XModuleResources.createInstance(startupParam.modulePath, null)
-        System.loadLibrary("libreactnativejni")
+
     }
     fun hexStringToColorInt(hexString: String): Int {
     val parsed = Color.parseColor(hexString)
