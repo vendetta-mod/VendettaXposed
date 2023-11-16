@@ -38,6 +38,5 @@ dependencies {
     implementation("androidx.core:core:1.10.1")
     compileOnly("de.robv.android.xposed:api:82")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
-
-implementation("de.robv.android.xposed:api:82:sources")
+implementation ('com.facebook.react:react-native:+')
 }
