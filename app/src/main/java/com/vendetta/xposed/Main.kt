@@ -80,7 +80,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
     private val FONTS_ASSET_PATH = "fonts/"
 
     private lateinit var modResources: XModuleResources
-    private lateinit var files: File
+    private lateinit var cache: File
     private val rawColorMap = mutableMapOf<String, Int>()
     private val fontMap = mutableMapOf<String, String>()
 
@@ -141,7 +141,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
             for (fontFamilyName in fontFamilyNames) {
                 if(!fontMap[fontFamilyName].isNullOrEmpty()) {
                     val fileName = java.lang.StringBuilder()
-                        .append(files.absolutePath)
+                        .append(cache.absolutePath)
                         .append("/fonts/")
                         .append(fontMap[fontFamilyName])
                         .toString()
@@ -216,7 +216,7 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
         val extension = EXTENSIONS[style]
         if(!fontMap[fontFamilyName + extension].isNullOrEmpty()) {
             val fileName = java.lang.StringBuilder()
-                .append(files.absolutePath)
+                .append(cache.absolutePath)
                 .append("/fonts/")
                 .append(fontMap[fontFamilyName + extension])
                 .toString()
@@ -263,14 +263,15 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
             Boolean::class.javaPrimitiveType
         ).apply { isAccessible = true }
 
-        val cache = File(param.appInfo.dataDir, "cache").also { it.mkdirs() }
+        cache = File(param.appInfo.dataDir, "cache").also { it.mkdirs() }
         val vendetta = File(cache, "vendetta.js")
         val etag = File(cache, "vendetta_etag.txt")
         val themeJs = File(cache, "vendetta_theme.js")
         val syscolorsJs = File(cache, "vendetta_syscolors.js")
 
         lateinit var config: LoaderConfig
-        files = File(param.appInfo.dataDir, "files").also { it.mkdirs() }
+        val files = File(param.appInfo.dataDir, "files").also { it.mkdirs() }
+        val fontsDir = File(cache, "fonts").also { it.mkdirs() }
         val configFile = File(files, "vendetta_loader.json")
         val themeFile = File(files, "vendetta_theme.json")
 
@@ -339,12 +340,13 @@ class Main : IXposedHookZygoteInit, IXposedHookLoadPackage, IXposedHookInitPacka
                                 Json { ignoreUnknownKeys = true }.decodeFromString<Theme>(themeText)
 
                             theme.data.fonts?.forEach { (key, value) ->
-                                val conn = URL(value).openConnection() as HttpURLConnection
                                 val name = URLUtil.guessFileName(value, null, null)
-                                val file = File(files, "fonts/$name")
+                                val file = File(fontsDir.absolutePath, name)
                                 fontMap[key] = name
                                 if (file.exists())
                                     return@forEach
+
+                                val conn = URL(value).openConnection() as HttpURLConnection
                                 conn.connectTimeout = 3000
                                 conn.readTimeout = 3000
                                 if (conn.responseCode == 200) {
