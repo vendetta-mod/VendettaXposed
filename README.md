@@ -1,3 +1,6 @@
+> [!IMPORTANT]  
+> As of 06/02/24, Vendetta and related projects have been discontinued.
+
 # VendettaXposed
 An Xposed module to inject Vendetta, a mod for Discord's mobile apps.
 
